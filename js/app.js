@@ -55,12 +55,12 @@ function startJourney() {
 function showScreen(id) {
   document.querySelectorAll('.screen').forEach(s => {
     s.classList.remove('active');
-    s.style.display = 'none';
+    s.style.display = 'none's.style.cssText = 'display:none !important';
   });
   const el = document.getElementById(id);
   if (!el) return;
-  if (id === 'sloading' || id === 'slogin') { el.style.display = 'block'; }
-  else if (id === 'sc') { el.style.display = 'flex'; }
+  el.style.cssText = '';
+  if (id === 'sc') { el.style.display = 'flex'; }
   else { el.style.display = 'block'; }
   el.classList.add('active');
   window.scrollTo(0, 0);
