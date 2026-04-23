@@ -55,7 +55,7 @@ function startJourney() {
 function showScreen(id) {
   document.querySelectorAll('.screen').forEach(s => {
     s.classList.remove('active');
-    s.style.display = 'none's.style.display = 'none';
+    s.style.display = 'none';
   });
   const el = document.getElementById(id);
   if (!el) return;
