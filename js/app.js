@@ -55,11 +55,11 @@ function startJourney() {
 function showScreen(id) {
   document.querySelectorAll('.screen').forEach(s => {
     s.classList.remove('active');
-    s.style.display = 'none's.style.cssText = 'display:none !important';
+    s.style.display = 'none's.style.display = 'none';
   });
   const el = document.getElementById(id);
   if (!el) return;
-  el.style.cssText = '';
+  el.style.removeProperty('display');
   if (id === 'sc') { el.style.display = 'flex'; }
   else { el.style.display = 'block'; }
   el.classList.add('active');
