@@ -1,8 +1,16 @@
 // =====================
 // STATE
 // =====================
-let S = { name: '', avatar: '🎓', xp: 0, done: [] };
+let S = {
+  name: '', avatar: '🎓',
+  masterXP: 0,
+  code: { xp: 0, done: [] },
+  math: { xp: 0, level: 1 }
+};
 let CUR = null, STEP = 0, QUIZ_DONE = false, CHALLENGE_CHECKS = [], QUIZ_EXP = '';
+let MATH_WS = [];        // current worksheet problems
+let MATH_WS_LEVEL = 0;  // level id of current worksheet
+let MATH_WS_DONE = false;
 
 // =====================
 // HELPERS
@@ -15,6 +23,10 @@ function escHtml(s) {
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;');
 }
+function updateMasterXP() {
+  S.masterXP = (S.code.xp || 0) + (S.math.xp || 0);
+}
+function masterLevel() { return Math.floor(S.masterXP / 300) + 1; }
 
 // =====================
 // AVATAR
@@ -45,8 +57,8 @@ function startJourney() {
   }
   S.name = n;
   save();
-  showScreen('sd');
-  renderDash();
+  showScreen('shome');
+  renderHome();
 }
 
 // =====================
@@ -66,11 +78,11 @@ function showScreen(id) {
 }
 
 // =====================
-// BELTS
+// BELTS (Code)
 // =====================
 function curBelt() {
   let b = BELTS[0];
-  BELTS.forEach(x => { if (S.xp >= x.xp) b = x; });
+  BELTS.forEach(x => { if (S.code.xp >= x.xp) b = x; });
   return b;
 }
 function nextBelt() {
@@ -78,24 +90,83 @@ function nextBelt() {
   return BELTS[i + 1] || null;
 }
 function beltBy(id) { return BELTS.find(b => b.id === id); }
-function unlocked(bid) { const b = beltBy(bid); return b && S.xp >= b.xp; }
+function unlocked(bid) { const b = beltBy(bid); return b && S.code.xp >= b.xp; }
 
 // =====================
-// DASHBOARD
+// HOME SCREEN
+// =====================
+function renderHome() {
+  updateMasterXP();
+  const lv = masterLevel();
+  const lvXP = S.masterXP - (lv - 1) * 300;
+  const pct = Math.min(100, (lvXP / 300) * 100);
+
+  set('hm-av', S.avatar);
+  set('hm-name', S.name);
+  set('hm-level', '⭐ Level ' + lv);
+  set('hm-xp-label', S.masterXP + ' Master XP');
+  set('hm-xp-next', lvXP + ' / 300 XP to Level ' + (lv + 1));
+  const bar = document.getElementById('hm-master-bar');
+  if (bar) bar.style.width = pct + '%';
+
+  // Code door
+  const cb = curBelt(), cnb = nextBelt();
+  const cs = cb.xp, ce = cnb ? cnb.xp : cs + 500;
+  const cpct = Math.min(100, ((S.code.xp - cs) / (ce - cs)) * 100);
+  set('hm-code-belt', cb.em + ' ' + cb.name);
+  set('hm-code-xp', S.code.xp + ' XP');
+  const cbar = document.getElementById('hm-code-bar');
+  if (cbar) { cbar.style.width = cpct + '%'; cbar.style.background = 'linear-gradient(90deg,var(--sky2),var(--green))'; }
+
+  // Math door
+  const ml = S.math.level, mlTotal = MATH_LEVELS.length;
+  const mpct = Math.min(100, ((ml - 1) / mlTotal) * 100);
+  set('hm-math-level', 'Level ' + Math.min(ml, mlTotal) + ' / ' + mlTotal);
+  set('hm-math-xp', S.math.xp + ' XP');
+  const mbar = document.getElementById('hm-math-bar');
+  if (mbar) { mbar.style.width = mpct + '%'; mbar.style.background = 'linear-gradient(90deg,var(--orange),var(--amber))'; }
+
+  // Badges
+  renderHomeBadges();
+}
+
+function renderHomeBadges() {
+  const wrap = document.getElementById('hm-badges');
+  if (!wrap) return;
+  const earned = BELTS.filter(b => S.code.xp >= b.xp);
+  const mathStagesDone = [];
+  const stageMaxLevel = { 1:8, 2:13, 3:17, 4:20 };
+  [1,2,3,4].forEach(st => {
+    if (S.math.level > stageMaxLevel[st]) mathStagesDone.push(st);
+  });
+
+  let html = earned.map(b =>
+    `<span class="badge-chip" style="background:${b.color}22;color:${b.color};border-color:${b.color}44">${b.em} ${b.name}</span>`
+  ).join('');
+  html += mathStagesDone.map(st => {
+    const s = MATH_STAGE_NAMES[st];
+    return `<span class="badge-chip" style="background:${s.color}22;color:${s.color};border-color:${s.color}44">${s.em} ${s.name}</span>`;
+  }).join('');
+  if (!html) html = '<span style="color:var(--text2);font-size:13px">Complete lessons to earn badges!</span>';
+  wrap.innerHTML = html;
+}
+
+// =====================
+// DASHBOARD (Code Academy)
 // =====================
 function renderDash() {
   const b = curBelt(), nb = nextBelt();
   set('nv-av', S.avatar);
   set('nv-name', S.name);
-  set('nv-xp', S.xp + ' XP');
+  set('nv-xp', S.code.xp + ' XP');
   styleBadge('nv-belt', b);
   set('rc-av', S.avatar);
   set('rc-name', S.name + "'s Academy");
   styleBadge('rc-belt', b);
   const s = b.xp, e = nb ? nb.xp : s + 500;
-  const pct = Math.min(100, ((S.xp - s) / (e - s)) * 100);
+  const pct = Math.min(100, ((S.code.xp - s) / (e - s)) * 100);
   document.getElementById('rc-xpbar').style.width = pct + '%';
-  set('rc-xplabel', S.xp + ' / ' + e + ' XP');
+  set('rc-xplabel', S.code.xp + ' / ' + e + ' XP');
   set('rc-next', nb
     ? 'Keep going to earn your ' + nb.name + '! ' + nb.em
     : '🎉 You have the highest belt! True Dev!');
@@ -117,7 +188,7 @@ function renderDash() {
       </div>
       <div class="lesson-grid">
         ${ls.map(l => {
-          const done = S.done.includes(l.id);
+          const done = S.code.done.includes(l.id);
           const isc  = l.type === 'challenge';
           return `<div class="lesson-card${!uk ? ' locked' : ''}${done ? ' done' : ''}"
             onclick="${uk ? `startLesson('${l.id}')` : 'lockMsg()'}"
@@ -145,7 +216,7 @@ function styleBadge(id, b) {
 }
 
 function lockMsg() {
-  const nb = BELTS.find(b => b.xp > S.xp);
+  const nb = BELTS.find(b => b.xp > S.code.xp);
   if (nb) alert('🔒 You need ' + nb.xp + ' total XP to unlock the ' + nb.name + '!\n\nKeep completing lessons!');
 }
 
@@ -166,7 +237,6 @@ function renderStep() {
   const step  = CUR.steps[STEP];
   const total = CUR.steps.length;
 
-  // Step dots
   document.getElementById('ln-dots').innerHTML = CUR.steps.map((_, i) => {
     let c = 'step-dot';
     if (i < STEP) c += ' done';
@@ -174,7 +244,6 @@ function renderStep() {
     return `<div class="${c}"></div>`;
   }).join('');
 
-  // Nav buttons
   document.getElementById('btn-prev').style.display = STEP > 0 ? 'inline-flex' : 'none';
   const last  = STEP === total - 1;
   const btnN  = document.getElementById('btn-next');
@@ -182,7 +251,6 @@ function renderStep() {
   btnN.className   = 'btn ' + (last ? 'btn-green' : 'btn-blue');
   btnN.style.display = (step.type === 'quiz' && !QUIZ_DONE) ? 'none' : 'inline-flex';
 
-  // Content
   const el = document.getElementById('ln-content');
 
   if (step.type === 'read') {
@@ -290,13 +358,18 @@ function prevStep() {
 }
 
 // =====================
-// COMPLETION
+// COMPLETION (Code)
 // =====================
 function completLesson() {
-  const already = S.done.includes(CUR.id);
+  const already = S.code.done.includes(CUR.id);
   const earned  = already ? 0 : CUR.xp;
   const oldBelt = curBelt();
-  if (!already) { S.xp += earned; S.done.push(CUR.id); save(); }
+  if (!already) {
+    S.code.xp += earned;
+    S.code.done.push(CUR.id);
+    updateMasterXP();
+    save();
+  }
   const newBelt = curBelt();
   const beltUp  = !already && newBelt.id !== oldBelt.id;
   set('cel-em',  CUR.em);
@@ -313,6 +386,172 @@ function completLesson() {
   showScreen('sc');
   if (!already) { confetti(); beep('win'); }
   renderDash();
+}
+
+// =====================
+// MATH ACADEMY
+// =====================
+function renderMathDash() {
+  const wrap = document.getElementById('math-levels-wrap');
+  if (!wrap) return;
+  set('math-xp-badge', S.math.xp + ' XP');
+
+  const stages = [1, 2, 3, 4];
+  wrap.innerHTML = stages.map(st => {
+    const stInfo = MATH_STAGE_NAMES[st];
+    const levels = MATH_LEVELS.filter(l => l.stage === st);
+    return `
+      <div style="margin-bottom:32px">
+        <div class="math-stage-header">
+          <div class="math-stage-bar" style="background:${stInfo.color}"></div>
+          <h2 style="font-size:20px">${stInfo.em} ${stInfo.name}</h2>
+        </div>
+        <div class="math-level-grid">
+          ${levels.map(l => mathLevelCard(l)).join('')}
+        </div>
+      </div>
+    `;
+  }).join('');
+}
+
+function mathLevelCard(l) {
+  const done    = S.math.level > l.id;
+  const current = S.math.level === l.id;
+  const locked  = S.math.level < l.id;
+  let cls = 'math-level-card';
+  if (done) cls += ' done';
+  else if (current) cls += ' current';
+  else if (locked) cls += ' locked';
+  const click = locked ? '' : `onclick="startWorksheet(${l.id})"`;
+  return `
+    <div class="${cls}" ${click}>
+      <div class="math-level-num">Level ${l.id}</div>
+      <div class="math-level-em">${l.em}</div>
+      <div class="math-level-name">${l.name}</div>
+      <div class="math-level-xp ${done ? 'done' : ''}">${done ? '✅ Done' : current ? '🟠 Current' : '+' + l.xp + ' XP'}</div>
+    </div>
+  `;
+}
+
+// =====================
+// WORKSHEET
+// =====================
+function startWorksheet(levelId) {
+  const lvDef = MATH_LEVELS.find(l => l.id === levelId);
+  if (!lvDef) return;
+  MATH_WS_LEVEL = levelId;
+  MATH_WS = generateWorksheet(levelId);
+  MATH_WS_DONE = false;
+
+  set('ws-title', lvDef.name);
+  set('ws-level-num', 'Level ' + levelId);
+  set('ws-xp-badge', '+' + lvDef.xp + ' XP');
+
+  renderWorksheet();
+  showScreen('smathws');
+}
+
+function renderWorksheet() {
+  const wrap = document.getElementById('ws-problems');
+  if (!wrap) return;
+  wrap.innerHTML = MATH_WS.map((p, i) => `
+    <div class="ws-row" id="ws-row-${i}">
+      <span class="ws-num">${i + 1}.</span>
+      <span class="ws-q">${escHtml(p.q)}</span>
+      <input class="ws-input" type="number" id="ws-inp-${i}" placeholder="?" autocomplete="off">
+      <span class="ws-feedback" id="ws-fb-${i}"></span>
+      <span class="ws-correct-ans" id="ws-ca-${i}"></span>
+    </div>
+  `).join('');
+
+  const scoreCard = document.getElementById('ws-score-card');
+  if (scoreCard) scoreCard.style.display = 'none';
+  const submitBtn = document.getElementById('ws-submit-btn');
+  if (submitBtn) { submitBtn.style.display = 'inline-flex'; submitBtn.disabled = false; }
+  const retryBtn = document.getElementById('ws-retry-btn');
+  if (retryBtn) retryBtn.style.display = 'none';
+  const nextBtn = document.getElementById('ws-next-btn');
+  if (nextBtn) nextBtn.style.display = 'none';
+}
+
+function submitWorksheet() {
+  if (MATH_WS_DONE) return;
+  MATH_WS_DONE = true;
+
+  let correct = 0;
+  MATH_WS.forEach((p, i) => {
+    const inp = document.getElementById('ws-inp-' + i);
+    const row = document.getElementById('ws-row-' + i);
+    const fb  = document.getElementById('ws-fb-' + i);
+    const ca  = document.getElementById('ws-ca-' + i);
+    if (!inp) return;
+    inp.disabled = true;
+    const val = parseInt(inp.value, 10);
+    if (val === p.a) {
+      correct++;
+      row.classList.add('correct');
+      inp.classList.add('correct');
+      fb.textContent = '✅';
+    } else {
+      row.classList.add('wrong');
+      inp.classList.add('wrong');
+      fb.textContent = '❌';
+      ca.textContent = '→ ' + p.a;
+    }
+  });
+
+  const passed = correct >= 8;
+  const lvDef  = MATH_LEVELS.find(l => l.id === MATH_WS_LEVEL);
+  const earned = (passed && S.math.level === MATH_WS_LEVEL) ? lvDef.xp : 0;
+
+  if (earned > 0) {
+    S.math.xp += earned;
+    S.math.level = Math.min(MATH_WS_LEVEL + 1, MATH_LEVELS.length + 1);
+    updateMasterXP();
+    save();
+  }
+
+  const scoreCard = document.getElementById('ws-score-card');
+  if (scoreCard) {
+    scoreCard.style.display = 'block';
+    const numEl = scoreCard.querySelector('.ws-score-num');
+    if (numEl) {
+      numEl.textContent = correct + ' / 10';
+      numEl.className = 'ws-score-num ' + (passed ? 'ws-pass' : 'ws-fail');
+    }
+    const msgEl = document.getElementById('ws-score-msg');
+    if (msgEl) msgEl.textContent = passed ? '🎉 You Passed!' : '📚 Almost! Need 8/10 to advance.';
+    const xpEl = document.getElementById('ws-score-xp');
+    if (xpEl) {
+      xpEl.style.display = earned > 0 ? 'inline-block' : 'none';
+      xpEl.textContent = '+' + lvDef.xp + ' XP!';
+    }
+    if (passed && earned > 0) { confetti(); beep('win'); }
+    else if (passed) { beep('right'); }
+    else { beep('wrong'); }
+  }
+
+  const submitBtn = document.getElementById('ws-submit-btn');
+  if (submitBtn) submitBtn.style.display = 'none';
+  const retryBtn = document.getElementById('ws-retry-btn');
+  if (retryBtn) retryBtn.style.display = 'inline-flex';
+  const nextBtn = document.getElementById('ws-next-btn');
+  if (nextBtn) {
+    const hasNext = MATH_WS_LEVEL < MATH_LEVELS.length;
+    nextBtn.style.display = (passed && hasNext) ? 'inline-flex' : 'none';
+  }
+}
+
+function retryWorksheet() {
+  MATH_WS = generateWorksheet(MATH_WS_LEVEL);
+  MATH_WS_DONE = false;
+  renderWorksheet();
+}
+
+function nextMathLevel() {
+  const nextId = MATH_WS_LEVEL + 1;
+  if (nextId <= MATH_LEVELS.length) startWorksheet(nextId);
+  else { showScreen('smath'); renderMathDash(); }
 }
 
 // =====================

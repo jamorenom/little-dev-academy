@@ -19,23 +19,23 @@ let currentUser = null;
 // SAVE
 // =====================
 async function save() {
-  // Always cache locally as backup
+  updateMasterXP();
   try { localStorage.setItem('lda_save', JSON.stringify(S)); } catch(e) {}
-  // Save to Firestore if signed in
   if (!currentUser) return;
   try {
     await db.collection('users').doc(currentUser.uid).set({
-      name:     S.name,
-      avatar:   S.avatar,
-      xp:       S.xp,
-      done:     S.done,
-      lastSeen: firebase.firestore.FieldValue.serverTimestamp()
+      name:      S.name,
+      avatar:    S.avatar,
+      masterXP:  S.masterXP,
+      code:      { xp: S.code.xp, done: S.code.done },
+      math:      { xp: S.math.xp, level: S.math.level },
+      lastSeen:  firebase.firestore.FieldValue.serverTimestamp()
     });
   } catch(e) { console.error('Firestore save error:', e); }
 }
 
 // =====================
-// LOAD
+// LOAD (with migration)
 // =====================
 async function loadProgress() {
   if (!currentUser) return;
@@ -45,12 +45,37 @@ async function loadProgress() {
       const d = doc.data();
       S.name   = d.name   || '';
       S.avatar = d.avatar || '🎓';
-      S.xp     = d.xp     || 0;
-      S.done   = d.done   || [];
+
+      if (d.code) {
+        // New structure
+        S.code = { xp: d.code.xp || 0, done: d.code.done || [] };
+        S.math = { xp: (d.math && d.math.xp) || 0, level: (d.math && d.math.level) || 1 };
+        S.masterXP = d.masterXP || 0;
+      } else {
+        // Old flat structure — migrate
+        S.code = { xp: d.xp || 0, done: d.done || [] };
+        S.math = { xp: 0, level: 1 };
+        updateMasterXP();
+        save(); // persist migrated structure
+      }
     }
   } catch(e) {
-    // Fallback to localStorage if Firestore fails
-    try { const raw = localStorage.getItem('lda_save'); if (raw) S = JSON.parse(raw); } catch(e2) {}
+    try {
+      const raw = localStorage.getItem('lda_save');
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        // Handle old localStorage shape too
+        if (parsed.code) {
+          S = parsed;
+        } else {
+          S.name   = parsed.name   || '';
+          S.avatar = parsed.avatar || '🎓';
+          S.code   = { xp: parsed.xp || 0, done: parsed.done || [] };
+          S.math   = { xp: 0, level: 1 };
+          updateMasterXP();
+        }
+      }
+    } catch(e2) {}
     console.error('Firestore load error:', e);
   }
 }
@@ -100,8 +125,8 @@ function init() {
       buildAvatarGrid();
       await loadProgress();
       if (S.name) {
-        showScreen('sd');
-        renderDash();
+        showScreen('shome');
+        renderHome();
       } else {
         const firstName = (user.displayName || '').split(' ')[0];
         showScreen('sw');
@@ -113,7 +138,7 @@ function init() {
       }
     } else {
       currentUser = null;
-      S = { name: '', avatar: '🎓', xp: 0, done: [] };
+      S = { name: '', avatar: '🎓', masterXP: 0, code: { xp: 0, done: [] }, math: { xp: 0, level: 1 } };
       showScreen('slogin');
     }
   });
