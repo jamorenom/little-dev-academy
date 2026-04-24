@@ -6,6 +6,8 @@
   --green:#4ade80;--amber:#fbbf24;--red:#f87171;--purple:#a855f7;
 }
 body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--navy);color:var(--text);min-height:100vh}
+/* LOADING SCREEN */
+#sloading.active{display:flex!important;align-items:center;justify-content:center;min-height:100vh}
 .screen{display:none;min-height:100vh}
 .screen.active{display:block}
 h1{font-size:32px;font-weight:700}
