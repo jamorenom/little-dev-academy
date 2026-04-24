@@ -84,8 +84,17 @@ function resetConfirm() {
 // =====================
 // INIT — AUTH LISTENER
 // =====================
+function hideLoading() {
+  const el = document.getElementById('sloading');
+  if (el) {
+    el.style.setProperty('display', 'none', 'important');
+    el.classList.remove('active');
+  }
+}
+
 function init() {
   auth.onAuthStateChanged(async (user) => {
+    hideLoading();
     if (user) {
       currentUser = user;
       buildAvatarGrid();

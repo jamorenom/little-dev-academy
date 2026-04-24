@@ -55,13 +55,12 @@ function startJourney() {
 function showScreen(id) {
   document.querySelectorAll('.screen').forEach(s => {
     s.classList.remove('active');
-    s.style.display = 'none';
+    s.style.setProperty('display', 'none', 'important');
   });
   const el = document.getElementById(id);
   if (!el) return;
-  el.style.removeProperty('display');
-  if (id === 'sc') { el.style.display = 'flex'; }
-  else { el.style.display = 'block'; }
+  if (id === 'sc') { el.style.setProperty('display', 'flex', 'important'); }
+  else { el.style.setProperty('display', 'block', 'important'); }
   el.classList.add('active');
   window.scrollTo(0, 0);
 }
