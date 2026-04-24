@@ -27,7 +27,7 @@ async function save() {
       name:     S.name,
       avatar:   S.avatar,
       masterXP: S.masterXP,
-      code:     { xp: S.code.xp, done: S.code.done },
+      code:     { xp: S.code.xp, done: S.code.done, fpBadge: S.code.fpBadge || false },
       math: {
         xp:             S.math.xp,
         level:          S.math.level,
@@ -55,7 +55,7 @@ async function loadProgress() {
 
       if (d.code) {
         // Phase 2+ structure
-        S.code = { xp: d.code.xp || 0, done: d.code.done || [] };
+        S.code = { xp: d.code.xp || 0, done: d.code.done || [], fpBadge: d.code.fpBadge || false };
         const m = d.math || {};
         S.math = {
           xp:             m.xp             || 0,
@@ -68,7 +68,7 @@ async function loadProgress() {
         S.masterXP = d.masterXP || 0;
       } else {
         // Phase 1 flat structure — migrate
-        S.code = { xp: d.xp || 0, done: d.done || [] };
+        S.code = { xp: d.xp || 0, done: d.done || [], fpBadge: false };
         S.math = emptyMath();
         updateMasterXP();
         save();
@@ -86,10 +86,11 @@ async function loadProgress() {
           if (S.math.streak         === undefined) S.math.streak         = 0;
           if (S.math.lastActiveDate === undefined) S.math.lastActiveDate = '';
           if (S.math.totalWorksheets=== undefined) S.math.totalWorksheets= 0;
+          if (S.code.fpBadge        === undefined) S.code.fpBadge        = false;
         } else {
           S.name   = parsed.name   || '';
           S.avatar = parsed.avatar || '🎓';
-          S.code   = { xp: parsed.xp || 0, done: parsed.done || [] };
+          S.code   = { xp: parsed.xp || 0, done: parsed.done || [], fpBadge: false };
           S.math   = emptyMath();
           updateMasterXP();
         }
@@ -126,6 +127,54 @@ function resetConfirm() {
 }
 
 // =====================
+// FREE PLAY — FIRESTORE
+// =====================
+async function loadFpProjects() {
+  if (!currentUser) return [];
+  try {
+    const snap = await db.collection('users').doc(currentUser.uid)
+      .collection('projects').get();
+    const list = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    list.sort((a, b) => {
+      const ta = a.updatedAt ? a.updatedAt.toMillis() : 0;
+      const tb = b.updatedAt ? b.updatedAt.toMillis() : 0;
+      return tb - ta;
+    });
+    return list;
+  } catch(e) { console.error('loadFpProjects error:', e); return []; }
+}
+
+async function saveFpProject(proj) {
+  if (!currentUser) return null;
+  try {
+    const col = db.collection('users').doc(currentUser.uid).collection('projects');
+    const data = {
+      em:        proj.em    || '🎮',
+      title:     proj.title || 'My Project',
+      html:      proj.html  || '',
+      css:       proj.css   || '',
+      js:        proj.js    || '',
+      updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+    };
+    if (proj.id) {
+      await col.doc(proj.id).set(data, { merge: true });
+      return proj.id;
+    } else {
+      data.createdAt = firebase.firestore.FieldValue.serverTimestamp();
+      const ref = await col.add(data);
+      return ref.id;
+    }
+  } catch(e) { console.error('saveFpProject error:', e); return null; }
+}
+
+async function deleteFpProject(id) {
+  if (!currentUser || !id) return;
+  try {
+    await db.collection('users').doc(currentUser.uid).collection('projects').doc(id).delete();
+  } catch(e) { console.error('deleteFpProject error:', e); }
+}
+
+// =====================
 // INIT — AUTH LISTENER
 // =====================
 function hideLoading() {
@@ -157,7 +206,8 @@ function init() {
       }
     } else {
       currentUser = null;
-      S = { name: '', avatar: '🎓', masterXP: 0, code: { xp: 0, done: [] }, math: emptyMath() };
+      S = { name: '', avatar: '🎓', masterXP: 0, code: { xp: 0, done: [], fpBadge: false }, math: emptyMath() };
+      FP_PROJECTS = []; FP_CUR = null;
       showScreen('slogin');
     }
   });

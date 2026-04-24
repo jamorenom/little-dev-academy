@@ -19,7 +19,7 @@ function emptyMath() {
 let S = {
   name: '', avatar: '🎓',
   masterXP: 0,
-  code: { xp: 0, done: [] },
+  code: { xp: 0, done: [], fpBadge: false },
   math: emptyMath()
 };
 
@@ -37,6 +37,32 @@ let MATH_WS_START_TIME = 0;
 
 // Code Academy tab state
 let CODE_TAB = 1;
+
+// Free Play state
+let FP_PROJECTS     = [];
+let FP_CUR          = null;
+let FP_EDITOR_TAB   = 'html';
+let FP_AUTO_SAVE_ID = null;
+let FP_SAVE_COOLDOWN= {};
+
+const FP_TEMPLATES = [
+  { em:'🎮', name:'Blank Game',
+    html:'',
+    css:'body {\n  font-family: system-ui, sans-serif;\n  background: #1a1a2e;\n  color: #eee;\n  margin: 0;\n  padding: 20px;\n}',
+    js:'' },
+  { em:'🌈', name:'Color Clicker',
+    html:'<h1 id="score">Clicks: 0</h1>\n<button id="btn" onclick="doClick()">Click me! 🌈</button>',
+    css:'body { font-family: system-ui; text-align: center; padding: 40px; background: #1a1a2e; color: white; }\nh1 { font-size: 48px; }\nbutton { font-size: 24px; padding: 16px 32px; border-radius: 12px; border: none; cursor: pointer; background: #7c3aed; color: white; }',
+    js:'var count = 0;\nfunction doClick() {\n  count++;\n  document.getElementById("score").textContent = "Clicks: " + count;\n  document.getElementById("btn").style.background = "hsl(" + (count * 30) + ", 70%, 50%)";\n}' },
+  { em:'🎲', name:'Number Guesser',
+    html:'<h1>🎲 Guess My Number!</h1>\n<p>Pick a number 1 to 10...</p>\n<input id="g" type="number" min="1" max="10" placeholder="?">\n<button onclick="check()">Guess!</button>\n<p id="msg" style="font-size:20px"></p>',
+    css:'body { font-family: system-ui; text-align: center; padding: 30px; background: #0f172a; color: #f1f5f9; }\ninput { font-size: 20px; padding: 10px; width: 70px; border-radius: 8px; border: 2px solid #7c3aed; background: #1e293b; color: white; text-align: center; }\nbutton { font-size: 18px; padding: 10px 20px; border-radius: 8px; border: none; background: #7c3aed; color: white; cursor: pointer; margin-left: 8px; }',
+    js:'var secret = Math.floor(Math.random() * 10) + 1;\nfunction check() {\n  var g = parseInt(document.getElementById("g").value);\n  var msg = document.getElementById("msg");\n  if (g === secret) { msg.textContent = "🎉 Yes! It was " + secret + "! New game!"; secret = Math.floor(Math.random() * 10) + 1; }\n  else if (g < secret) { msg.textContent = "📈 Too low! Try higher!"; }\n  else { msg.textContent = "📉 Too high! Try lower!"; }\n}' },
+  { em:'🎨', name:'Drawing Canvas',
+    html:'<h2>🎨 My Drawing App</h2>\n<canvas id="c" width="380" height="260"></canvas>\n<br>\n<button onclick="clearIt()">Clear 🗑️</button>',
+    css:'body { font-family: system-ui; text-align: center; padding: 20px; background: #0f172a; color: white; }\ncanvas { border: 3px solid #a855f7; border-radius: 8px; cursor: crosshair; background: white; display: block; margin: 10px auto; }\nbutton { font-size: 16px; padding: 8px 20px; border-radius: 8px; border: none; background: #a855f7; color: white; cursor: pointer; }',
+    js:'var c = document.getElementById("c");\nvar ctx = c.getContext("2d");\nvar drawing = false;\nctx.strokeStyle = "#7c3aed";\nctx.lineWidth = 3;\nctx.lineCap = "round";\nc.onmousedown = function(e) { drawing = true; ctx.beginPath(); ctx.moveTo(e.offsetX, e.offsetY); };\nc.onmousemove = function(e) { if (!drawing) return; ctx.lineTo(e.offsetX, e.offsetY); ctx.stroke(); };\nc.onmouseup = function() { drawing = false; };\nfunction clearIt() { ctx.clearRect(0, 0, c.width, c.height); }' }
+];
 
 // =====================
 // HELPERS
@@ -91,15 +117,17 @@ function startJourney() {
 // SCREENS
 // =====================
 function showScreen(id) {
-  stopTimer(); // always clear worksheet timer when navigating
+  stopTimer();
+  fpAutoSaveStop();
+  fpCloseModal();
   document.querySelectorAll('.screen').forEach(s => {
     s.classList.remove('active');
     s.style.setProperty('display', 'none', 'important');
   });
   const el = document.getElementById(id);
   if (!el) return;
-  if (id === 'sc') { el.style.setProperty('display', 'flex', 'important'); }
-  else             { el.style.setProperty('display', 'block', 'important'); }
+  if (id === 'sc' || id === 'sfp') { el.style.setProperty('display', 'flex', 'important'); }
+  else                              { el.style.setProperty('display', 'block', 'important'); }
   el.classList.add('active');
   window.scrollTo(0, 0);
 }
@@ -178,6 +206,9 @@ function renderHomeBadges() {
     const s = MATH_STAGE_NAMES[st];
     return `<span class="badge-chip" style="background:${s.color}22;color:${s.color};border-color:${s.color}44">${s.em} ${s.name}</span>`;
   }).join('');
+  if (S.code.fpBadge) {
+    html += '<span class="badge-chip" style="background:#a855f722;color:#a855f7;border-color:#a855f744">🎮 First Game</span>';
+  }
   if (!html) html = '<span style="color:var(--text2);font-size:13px">Complete lessons to earn badges!</span>';
   wrap.innerHTML = html;
 }
@@ -263,6 +294,10 @@ function switchCodeTab(n) {
     if (tab)   tab.classList.toggle('active',   i === n);
     if (panel) panel.classList.toggle('active', i === n);
   }
+  if (n === 3) {
+    renderFreePlay();
+    loadFpProjects().then(ps => { FP_PROJECTS = ps; renderFreePlay(); });
+  }
 }
 
 function beginningSessionComplete() {
@@ -289,6 +324,203 @@ function renderBSProgress() {
       </div>
     </div>
   `;
+}
+
+// =====================
+// FREE PLAY
+// =====================
+function renderFreePlay() {
+  const wrap = document.getElementById('fp-list-wrap');
+  if (!wrap) return;
+  const notice = `<div class="fp-coming-notice">🔒 Challenge Runs coming soon! More ways to earn XP are on the way. ⚡</div>`;
+  const newBtn = `<button class="fp-new-btn" onclick="fpNewProject()">➕ New Project</button>`;
+  let body;
+  if (FP_PROJECTS.length === 0) {
+    body = `<div class="fp-empty-state">
+      <div style="font-size:64px;margin-bottom:16px">🚀</div>
+      <h2 style="margin-bottom:8px">No projects yet!</h2>
+      <p style="font-size:16px">Start building something awesome! 🎮</p>
+    </div>`;
+  } else {
+    body = `<div class="fp-project-grid">${FP_PROJECTS.map(p =>
+      `<div class="fp-project-card" onclick="fpOpenProject('${p.id}')">
+        <div class="fp-project-em">${p.em || '🎮'}</div>
+        <div class="fp-project-title">${escHtml(p.title || 'My Project')}</div>
+        <div class="fp-project-date">✏️ ${fpFmtDate(p.updatedAt)}</div>
+        <div class="fp-project-actions" onclick="event.stopPropagation()">
+          <button class="fp-project-btn" onclick="fpOpenProject('${p.id}')">Open</button>
+          <button class="fp-project-btn" onclick="fpRenameProject('${p.id}')">Rename</button>
+          <button class="fp-project-btn danger" onclick="fpDeleteProject('${p.id}')">Delete</button>
+        </div>
+      </div>`
+    ).join('')}</div>`;
+  }
+  wrap.innerHTML = notice + newBtn + body;
+}
+
+function fpNewProject() {
+  if (FP_PROJECTS.length >= 10) {
+    alert('You\'ve reached the limit of 10 projects! Delete one to make room. 🎮');
+    return;
+  }
+  const grid = document.getElementById('fp-template-grid');
+  if (grid) {
+    grid.innerHTML = FP_TEMPLATES.map((t, i) =>
+      `<button class="fp-template-card" onclick="fpPickTemplate(${i})">
+        <div class="fp-template-em">${t.em}</div>
+        <div class="fp-template-name">${t.name}</div>
+      </button>`
+    ).join('');
+  }
+  const modal = document.getElementById('fp-modal');
+  if (modal) modal.style.display = 'flex';
+}
+
+function fpCloseModal() {
+  const modal = document.getElementById('fp-modal');
+  if (modal) modal.style.display = 'none';
+}
+
+function fpPickTemplate(idx) {
+  fpCloseModal();
+  const t = FP_TEMPLATES[idx];
+  openFpEditor({ id:'', em:t.em, title:t.name, html:t.html, css:t.css, js:t.js, updatedAt:null });
+}
+
+function openFpEditor(proj) {
+  FP_CUR = proj;
+  FP_EDITOR_TAB = 'html';
+  const titleEl = document.getElementById('fp-title');
+  if (titleEl) titleEl.value = proj.title;
+  const ced = document.getElementById('fp-ced');
+  if (ced) ced.value = proj.html || '';
+  ['html','css','js'].forEach(t => {
+    const b = document.getElementById('fp-etab-' + t);
+    if (b) b.classList.toggle('active', t === 'html');
+  });
+  showScreen('sfp');
+  fpLivePreview();
+  fpAutoSaveStart();
+}
+
+function fpOnInput() {
+  if (!FP_CUR) return;
+  const ced = document.getElementById('fp-ced');
+  if (ced) FP_CUR[FP_EDITOR_TAB] = ced.value;
+  fpLivePreview();
+}
+
+function fpSwitchEditorTab(tab) {
+  if (!FP_CUR) return;
+  const ced = document.getElementById('fp-ced');
+  if (ced) FP_CUR[FP_EDITOR_TAB] = ced.value;
+  FP_EDITOR_TAB = tab;
+  if (ced) ced.value = FP_CUR[tab] || '';
+  ['html','css','js'].forEach(t => {
+    const b = document.getElementById('fp-etab-' + t);
+    if (b) b.classList.toggle('active', t === tab);
+  });
+}
+
+function fpLivePreview() {
+  if (!FP_CUR) return;
+  const pv = document.getElementById('fp-pv');
+  if (!pv) return;
+  pv.srcdoc = '<!DOCTYPE html><html><head><style>' + (FP_CUR.css || '') +
+    '</style></head><body>' + (FP_CUR.html || '') +
+    '<script>' + (FP_CUR.js || '') + '<\/script></body></html>';
+}
+
+async function fpSaveProject(silent) {
+  if (!FP_CUR) return;
+  const ced = document.getElementById('fp-ced');
+  if (ced) FP_CUR[FP_EDITOR_TAB] = ced.value;
+  const titleEl = document.getElementById('fp-title');
+  if (titleEl) FP_CUR.title = titleEl.value.trim() || 'My Project';
+  const newId = await saveFpProject(FP_CUR);
+  if (!FP_CUR.id && newId) FP_CUR.id = newId;
+  if (!silent && FP_CUR.id) {
+    const today = new Date().toISOString().slice(0, 10);
+    let xpEarned = 0;
+    if (!S.code.fpBadge) {
+      S.code.fpBadge = true; S.code.xp += 100; xpEarned += 100;
+    }
+    if (FP_SAVE_COOLDOWN[FP_CUR.id] !== today) {
+      FP_SAVE_COOLDOWN[FP_CUR.id] = today; S.code.xp += 10; xpEarned += 10;
+    }
+    if (xpEarned > 0) { updateMasterXP(); save(); }
+    const btn = document.getElementById('fp-save-btn');
+    if (btn) { btn.textContent = '✅ Saved!'; setTimeout(() => { if (btn) btn.textContent = '💾 Save'; }, 2000); }
+  }
+  if (FP_CUR.id) {
+    const idx = FP_PROJECTS.findIndex(p => p.id === FP_CUR.id);
+    if (idx >= 0) FP_PROJECTS[idx] = { ...FP_CUR };
+    else FP_PROJECTS.unshift({ ...FP_CUR });
+  }
+}
+
+function fpAutoSaveStart() {
+  fpAutoSaveStop();
+  FP_AUTO_SAVE_ID = setInterval(() => { if (FP_CUR) fpSaveProject(true); }, 30000);
+}
+
+function fpAutoSaveStop() {
+  if (FP_AUTO_SAVE_ID) { clearInterval(FP_AUTO_SAVE_ID); FP_AUTO_SAVE_ID = null; }
+}
+
+function fpOpenProject(id) {
+  const proj = FP_PROJECTS.find(p => p.id === id);
+  if (proj) openFpEditor(proj);
+}
+
+function fpRenameProject(id) {
+  const proj = FP_PROJECTS.find(p => p.id === id);
+  if (!proj) return;
+  const newTitle = prompt('Rename project:', proj.title);
+  if (!newTitle || !newTitle.trim()) return;
+  proj.title = newTitle.trim();
+  saveFpProject(proj);
+  renderFreePlay();
+}
+
+function fpDeleteProject(id) {
+  if (!confirm('Delete this project? This cannot be undone!')) return;
+  deleteFpProject(id);
+  FP_PROJECTS = FP_PROJECTS.filter(p => p.id !== id);
+  renderFreePlay();
+}
+
+function fpDeleteCurrent() {
+  if (!FP_CUR) return;
+  if (!confirm('Delete "' + FP_CUR.title + '"? This cannot be undone!')) return;
+  if (FP_CUR.id) {
+    deleteFpProject(FP_CUR.id);
+    FP_PROJECTS = FP_PROJECTS.filter(p => p.id !== FP_CUR.id);
+  }
+  fpAutoSaveStop();
+  FP_CUR = null;
+  showScreen('sd');
+  renderDash();
+  switchCodeTab(3);
+}
+
+async function fpBackToList() {
+  fpAutoSaveStop();
+  await fpSaveProject(true);
+  FP_CUR = null;
+  showScreen('sd');
+  renderDash();
+  switchCodeTab(3);
+}
+
+function fpFmtDate(ts) {
+  if (!ts || !ts.toDate) return 'Just now';
+  const d = ts.toDate();
+  const diff = Math.floor((Date.now() - d.getTime()) / 1000);
+  if (diff < 60)    return 'Just now';
+  if (diff < 3600)  return Math.floor(diff / 60) + 'm ago';
+  if (diff < 86400) return Math.floor(diff / 3600) + 'h ago';
+  return d.toLocaleDateString();
 }
 
 // =====================

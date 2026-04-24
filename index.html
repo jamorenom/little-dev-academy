@@ -139,7 +139,7 @@
   <div class="ca-tabs">
     <button class="ca-tab active" id="ca-tab-1" onclick="switchCodeTab(1)">📖 Beginning Session</button>
     <button class="ca-tab locked" id="ca-tab-2">⚡ Challenge Runs 🔒</button>
-    <button class="ca-tab locked" id="ca-tab-3">🎮 Free Play 🔒</button>
+    <button class="ca-tab" id="ca-tab-3" onclick="switchCodeTab(3)">🎮 Free Play</button>
   </div>
 
   <!-- Tab 1: Beginning Session -->
@@ -179,14 +179,10 @@
     </div>
   </div>
 
-  <!-- Tab 3: Free Play (locked placeholder — Phase 6) -->
+  <!-- Tab 3: Free Play -->
   <div id="ca-panel-3" class="ca-panel">
     <div class="container">
-      <div class="locked-panel-card">
-        <div style="font-size:64px;margin-bottom:16px">🔒</div>
-        <h2 style="margin-bottom:10px">Free Play</h2>
-        <p style="color:var(--text2);font-size:16px">Complete Challenge Runs to unlock! 🎮</p>
-      </div>
+      <div id="fp-list-wrap"></div>
     </div>
   </div>
 </div>
@@ -314,6 +310,42 @@
     </div>
     <!-- Per-stage breakdown -->
     <div id="rp-stages"></div>
+  </div>
+</div>
+
+<!-- ===== SCREEN: FREE PLAY EDITOR ===== -->
+<div id="sfp" class="screen">
+  <div class="fp-toolbar">
+    <button class="fp-toolbar-btn" onclick="fpBackToList()">← Back</button>
+    <input id="fp-title" class="fp-title-input" type="text" maxlength="40" placeholder="My Project">
+    <button class="fp-toolbar-btn save" id="fp-save-btn" onclick="fpSaveProject(false)">💾 Save</button>
+    <button class="fp-toolbar-btn" onclick="fpLivePreview()">▶️ Run</button>
+    <button class="fp-toolbar-btn danger" onclick="fpDeleteCurrent()">🗑️</button>
+  </div>
+  <div class="fp-editor-tabs">
+    <button class="fp-etab active" id="fp-etab-html" onclick="fpSwitchEditorTab('html')">HTML</button>
+    <button class="fp-etab" id="fp-etab-css" onclick="fpSwitchEditorTab('css')">CSS</button>
+    <button class="fp-etab" id="fp-etab-js" onclick="fpSwitchEditorTab('js')">JS</button>
+  </div>
+  <div class="fp-editor-body">
+    <div class="fp-code-wrap">
+      <div class="fp-code-label">✏️ CODE</div>
+      <textarea class="fp-code-area" id="fp-ced" oninput="fpOnInput()" spellcheck="false"></textarea>
+    </div>
+    <div class="fp-preview-wrap">
+      <div class="fp-preview-label">👁️ PREVIEW</div>
+      <iframe class="fp-preview" id="fp-pv" sandbox="allow-scripts"></iframe>
+    </div>
+  </div>
+</div>
+
+<!-- ===== FREE PLAY TEMPLATE MODAL ===== -->
+<div id="fp-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:400;align-items:center;justify-content:center;padding:20px">
+  <div class="fp-modal">
+    <h2 style="margin-bottom:6px">Choose a Starter 🚀</h2>
+    <p style="color:var(--text2);font-size:14px;margin-bottom:4px">Pick a template to begin!</p>
+    <div class="fp-template-grid" id="fp-template-grid"></div>
+    <button class="btn btn-ghost" style="width:100%;margin-top:4px" onclick="fpCloseModal()">Cancel</button>
   </div>
 </div>
 
