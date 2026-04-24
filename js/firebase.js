@@ -24,12 +24,19 @@ async function save() {
   if (!currentUser) return;
   try {
     await db.collection('users').doc(currentUser.uid).set({
-      name:      S.name,
-      avatar:    S.avatar,
-      masterXP:  S.masterXP,
-      code:      { xp: S.code.xp, done: S.code.done },
-      math:      { xp: S.math.xp, level: S.math.level },
-      lastSeen:  firebase.firestore.FieldValue.serverTimestamp()
+      name:     S.name,
+      avatar:   S.avatar,
+      masterXP: S.masterXP,
+      code:     { xp: S.code.xp, done: S.code.done },
+      math: {
+        xp:             S.math.xp,
+        level:          S.math.level,
+        streak:         S.math.streak         || 0,
+        lastActiveDate: S.math.lastActiveDate || '',
+        totalWorksheets:S.math.totalWorksheets|| 0,
+        stageStats:     S.math.stageStats     || emptyStageStats(),
+      },
+      lastSeen: firebase.firestore.FieldValue.serverTimestamp()
     });
   } catch(e) { console.error('Firestore save error:', e); }
 }
@@ -47,16 +54,24 @@ async function loadProgress() {
       S.avatar = d.avatar || '🎓';
 
       if (d.code) {
-        // New structure
+        // Phase 2+ structure
         S.code = { xp: d.code.xp || 0, done: d.code.done || [] };
-        S.math = { xp: (d.math && d.math.xp) || 0, level: (d.math && d.math.level) || 1 };
+        const m = d.math || {};
+        S.math = {
+          xp:             m.xp             || 0,
+          level:          m.level          || 1,
+          streak:         m.streak         || 0,
+          lastActiveDate: m.lastActiveDate || '',
+          totalWorksheets:m.totalWorksheets|| 0,
+          stageStats:     m.stageStats     || emptyStageStats(),
+        };
         S.masterXP = d.masterXP || 0;
       } else {
-        // Old flat structure — migrate
+        // Phase 1 flat structure — migrate
         S.code = { xp: d.xp || 0, done: d.done || [] };
-        S.math = { xp: 0, level: 1 };
+        S.math = emptyMath();
         updateMasterXP();
-        save(); // persist migrated structure
+        save();
       }
     }
   } catch(e) {
@@ -64,14 +79,18 @@ async function loadProgress() {
       const raw = localStorage.getItem('lda_save');
       if (raw) {
         const parsed = JSON.parse(raw);
-        // Handle old localStorage shape too
         if (parsed.code) {
           S = parsed;
+          // Ensure new math fields exist for Phase 2 saves missing Phase 3 fields
+          if (!S.math.stageStats) S.math.stageStats = emptyStageStats();
+          if (S.math.streak         === undefined) S.math.streak         = 0;
+          if (S.math.lastActiveDate === undefined) S.math.lastActiveDate = '';
+          if (S.math.totalWorksheets=== undefined) S.math.totalWorksheets= 0;
         } else {
           S.name   = parsed.name   || '';
           S.avatar = parsed.avatar || '🎓';
           S.code   = { xp: parsed.xp || 0, done: parsed.done || [] };
-          S.math   = { xp: 0, level: 1 };
+          S.math   = emptyMath();
           updateMasterXP();
         }
       }
@@ -138,7 +157,7 @@ function init() {
       }
     } else {
       currentUser = null;
-      S = { name: '', avatar: '🎓', masterXP: 0, code: { xp: 0, done: [] }, math: { xp: 0, level: 1 } };
+      S = { name: '', avatar: '🎓', masterXP: 0, code: { xp: 0, done: [] }, math: emptyMath() };
       showScreen('slogin');
     }
   });
