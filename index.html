@@ -72,9 +72,15 @@
     <span id="hm-av" style="font-size:40px">🎓</span>
     <div style="flex:1">
       <div style="font-size:20px;font-weight:700" id="hm-name">Dev</div>
-      <span class="master-level-badge" id="hm-level">⭐ Level 1</span>
+      <div style="display:flex;gap:8px;align-items:center;margin-top:4px;flex-wrap:wrap">
+        <span class="master-level-badge" id="hm-level">⭐ Level 1</span>
+        <span class="streak-chip" id="hm-streak" style="display:none">🔥 0 days</span>
+      </div>
     </div>
-    <button class="btn btn-ghost btn-sm" onclick="doSignOut()">Sign out</button>
+    <div style="display:flex;gap:6px;align-items:center">
+      <button class="btn btn-ghost btn-sm" onclick="showScreen('sreport');renderReport()" title="Progress Report">📊</button>
+      <button class="btn btn-ghost btn-sm" onclick="doSignOut()">Sign out</button>
+    </div>
   </div>
 
   <!-- Master XP bar -->
@@ -90,7 +96,6 @@
 
   <!-- Door cards -->
   <div class="door-grid">
-    <!-- Code Academy door -->
     <div class="door-card code" onclick="showScreen('sd');renderDash()">
       <div class="door-icon">💻</div>
       <div class="door-title" style="color:var(--sky)">Code Academy</div>
@@ -101,7 +106,6 @@
       <div class="door-xp-label" id="hm-code-xp">0 XP</div>
     </div>
 
-    <!-- Math Academy door -->
     <div class="door-card math" onclick="showScreen('smath');renderMathDash()">
       <div class="door-icon">🔢</div>
       <div class="door-title" style="color:var(--orange)">Math Academy</div>
@@ -148,7 +152,7 @@
     <div id="belts-wrap"></div>
     <p style="text-align:center;color:var(--text2);font-size:13px;margin-top:32px">
       🎓 Little Dev Academy — Built with love for young coders
-      <br><span style="font-size:11px;opacity:.5">v2.0.0</span>
+      <br><span style="font-size:11px;opacity:.5">v3.0.0</span>
     </p>
   </div>
 </div>
@@ -209,6 +213,16 @@
     <span id="ws-xp-badge" style="background:#431407;color:var(--orange);padding:4px 10px;border-radius:20px;font-size:13px;font-weight:700">+50 XP</span>
   </div>
   <div class="container" style="max-width:680px">
+
+    <!-- Timer bar -->
+    <div class="ws-timer-wrap">
+      <span style="font-size:18px">⏱️</span>
+      <span id="ws-timer-text" class="ws-timer-text">5:00</span>
+      <div class="ws-timer-bar-outer">
+        <div class="ws-timer-bar" id="ws-timer-bar" style="width:100%"></div>
+      </div>
+    </div>
+
     <!-- Info bar -->
     <div class="ws-header-info">
       <span style="font-size:32px">📝</span>
@@ -226,6 +240,8 @@
       <div class="ws-score-num ws-pass">0 / 10</div>
       <div id="ws-score-msg" style="font-size:20px;font-weight:700;margin:8px 0"></div>
       <div id="ws-score-xp" class="ws-xp-pill" style="display:none"></div>
+      <div id="ws-speed-bonus" style="display:none;margin-top:4px"></div>
+      <div id="ws-milestone-banner" class="milestone-banner" style="display:none"></div>
     </div>
 
     <!-- Action buttons -->
@@ -243,7 +259,31 @@
   </div>
 </div>
 
-<!-- Scripts loaded in order: curriculum → math → app logic → firebase (calls init last) -->
+<!-- ===== SCREEN: PROGRESS REPORT ===== -->
+<div id="sreport" class="screen">
+  <div class="navbar">
+    <button onclick="showScreen('shome');renderHome()" style="background:none;border:none;color:var(--text2);cursor:pointer;font-size:22px;padding:2px 6px" title="Home">🏠</button>
+    <span style="font-size:22px">📊</span>
+    <span style="font-weight:700;font-size:17px;flex:1;margin-left:8px">Progress Report</span>
+  </div>
+  <div class="container">
+    <!-- Top stats -->
+    <div class="report-stat-row">
+      <div class="report-stat">
+        <div class="report-stat-num" id="rp-streak">0</div>
+        <div class="report-stat-label">🔥 Day Streak</div>
+      </div>
+      <div class="report-stat">
+        <div class="report-stat-num" id="rp-total">0</div>
+        <div class="report-stat-label">📝 Worksheets Done</div>
+      </div>
+    </div>
+    <!-- Per-stage breakdown -->
+    <div id="rp-stages"></div>
+  </div>
+</div>
+
+<!-- Scripts: curriculum → math → app logic → firebase (init last) -->
 <script src="js/curriculum.js"></script>
 <script src="js/math.js"></script>
 <script src="js/app.js"></script>
