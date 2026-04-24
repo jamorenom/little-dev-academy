@@ -184,3 +184,22 @@ h3{font-size:18px;font-weight:600}
 .report-prog-outer{background:var(--navy3);border-radius:20px;height:10px;overflow:hidden;margin:6px 0 10px}
 .report-prog-inner{height:100%;border-radius:20px;transition:width .6s ease}
 .report-details{display:flex;gap:20px;font-size:13px;color:var(--text2);flex-wrap:wrap}
+
+/* ===== CODE ACADEMY TABS ===== */
+.ca-tabs{display:flex;background:var(--navy2);border-bottom:1px solid var(--navy3);padding:0 18px;gap:4px}
+.ca-tab{background:none;border:none;color:var(--text2);font-size:14px;font-weight:700;padding:14px 16px;cursor:pointer;border-bottom:3px solid transparent;font-family:inherit;transition:color .15s,border-bottom-color .15s;white-space:nowrap}
+.ca-tab:hover:not(.locked):not(.active){color:var(--text);border-bottom-color:var(--navy3)}
+.ca-tab.active{color:var(--sky);border-bottom-color:var(--sky)}
+.ca-tab.locked{opacity:.4;cursor:not-allowed;pointer-events:none}
+.ca-panel{display:none}
+.ca-panel.active{display:block}
+
+/* ===== BEGINNING SESSION PROGRESS ===== */
+.bs-progress-wrap{background:var(--navy2);border:1px solid var(--navy3);border-radius:14px;padding:16px 18px;margin-bottom:20px}
+.bs-progress-label{display:flex;justify-content:space-between;font-size:13px;margin-bottom:8px}
+.bs-progress-outer{background:var(--navy3);border-radius:20px;height:10px;overflow:hidden}
+.bs-progress-inner{height:100%;border-radius:20px;background:linear-gradient(90deg,var(--sky2),var(--green));transition:width .6s ease}
+.bs-progress-inner.complete{background:var(--green)}
+
+/* ===== LOCKED PANEL CARD ===== */
+.locked-panel-card{background:var(--navy2);border:2px dashed var(--navy3);border-radius:20px;padding:48px 24px;text-align:center;margin-top:20px}

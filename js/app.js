@@ -35,6 +35,9 @@ let MATH_WS_TIMER_ID   = null;
 let MATH_WS_SECONDS    = 300;
 let MATH_WS_START_TIME = 0;
 
+// Code Academy tab state
+let CODE_TAB = 1;
+
 // =====================
 // HELPERS
 // =====================
@@ -232,6 +235,8 @@ function renderDash() {
   `<div style="text-align:center;margin-top:20px;padding-bottom:20px">
     <button class="btn btn-ghost btn-sm" onclick="resetConfirm()" style="color:var(--text2);font-size:13px">⚙️ Reset Progress</button>
   </div>`;
+
+  renderBSProgress();
 }
 
 function styleBadge(id, b) {
@@ -245,6 +250,45 @@ function styleBadge(id, b) {
 function lockMsg() {
   const nb = BELTS.find(b => b.xp > S.code.xp);
   if (nb) alert('🔒 You need ' + nb.xp + ' total XP to unlock the ' + nb.name + '!\n\nKeep completing lessons!');
+}
+
+// =====================
+// CODE ACADEMY TABS
+// =====================
+function switchCodeTab(n) {
+  CODE_TAB = n;
+  for (let i = 1; i <= 3; i++) {
+    const tab   = document.getElementById('ca-tab-'   + i);
+    const panel = document.getElementById('ca-panel-' + i);
+    if (tab)   tab.classList.toggle('active',   i === n);
+    if (panel) panel.classList.toggle('active', i === n);
+  }
+}
+
+function beginningSessionComplete() {
+  return LESSONS.every(l => S.code.done.includes(l.id));
+}
+
+function renderBSProgress() {
+  const wrap = document.getElementById('bs-progress-wrap');
+  if (!wrap) return;
+  const done    = LESSONS.filter(l => S.code.done.includes(l.id)).length;
+  const total   = LESSONS.length;
+  const pct     = Math.round((done / total) * 100);
+  const complete = done === total;
+  wrap.innerHTML = `
+    <div class="bs-progress-wrap">
+      <div class="bs-progress-label">
+        <span style="font-weight:700;color:${complete ? 'var(--green)' : 'var(--text)'}">
+          ${complete ? '✅ Beginning Session Complete!' : '📖 Beginning Session'}
+        </span>
+        <span style="color:${complete ? 'var(--green)' : 'var(--text2)'}">${done} / ${total} lessons&nbsp;&nbsp;${pct}%</span>
+      </div>
+      <div class="bs-progress-outer">
+        <div class="bs-progress-inner${complete ? ' complete' : ''}" style="width:${pct}%"></div>
+      </div>
+    </div>
+  `;
 }
 
 // =====================

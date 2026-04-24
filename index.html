@@ -134,26 +134,60 @@
     <span id="nv-xp" style="color:var(--text2);font-size:13px;margin-left:6px">0 XP</span>
     <button class="btn btn-ghost btn-sm" onclick="resetConfirm()" style="margin-left:8px">⚙️</button>
   </div>
-  <div class="container">
-    <div class="rank-card" id="rank-card">
-      <div id="rc-av" style="font-size:54px;line-height:1">🎓</div>
-      <div style="flex:1">
-        <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px">
-          <span id="rc-name" style="font-size:19px;font-weight:700">Dev's Academy</span>
-          <span id="rc-belt" class="belt-badge" style="font-size:12px">🧩 Intro Belt</span>
+
+  <!-- Tab bar -->
+  <div class="ca-tabs">
+    <button class="ca-tab active" id="ca-tab-1" onclick="switchCodeTab(1)">📖 Beginning Session</button>
+    <button class="ca-tab locked" id="ca-tab-2">⚡ Challenge Runs 🔒</button>
+    <button class="ca-tab locked" id="ca-tab-3">🎮 Free Play 🔒</button>
+  </div>
+
+  <!-- Tab 1: Beginning Session -->
+  <div id="ca-panel-1" class="ca-panel active">
+    <div class="container">
+      <div class="rank-card" id="rank-card">
+        <div id="rc-av" style="font-size:54px;line-height:1">🎓</div>
+        <div style="flex:1">
+          <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px">
+            <span id="rc-name" style="font-size:19px;font-weight:700">Dev's Academy</span>
+            <span id="rc-belt" class="belt-badge" style="font-size:12px">🧩 Intro Belt</span>
+          </div>
+          <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px">
+            <span id="rc-xplabel" style="font-size:13px;color:var(--text2);white-space:nowrap">0/150 XP</span>
+            <div class="xp-outer"><div class="xp-inner" id="rc-xpbar" style="width:0%"></div></div>
+          </div>
+          <p id="rc-next" style="font-size:13px;color:var(--text2)">Complete intro lessons to earn your White Belt! ⬜</p>
         </div>
-        <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px">
-          <span id="rc-xplabel" style="font-size:13px;color:var(--text2);white-space:nowrap">0/150 XP</span>
-          <div class="xp-outer"><div class="xp-inner" id="rc-xpbar" style="width:0%"></div></div>
-        </div>
-        <p id="rc-next" style="font-size:13px;color:var(--text2)">Complete intro lessons to earn your White Belt! ⬜</p>
+      </div>
+      <div id="bs-progress-wrap"></div>
+      <div id="belts-wrap"></div>
+      <p style="text-align:center;color:var(--text2);font-size:13px;margin-top:32px">
+        🎓 Little Dev Academy — Built with love for young coders
+        <br><span style="font-size:11px;opacity:.5">v3.0.0</span>
+      </p>
+    </div>
+  </div>
+
+  <!-- Tab 2: Challenge Runs (locked placeholder — Phase 5) -->
+  <div id="ca-panel-2" class="ca-panel">
+    <div class="container">
+      <div class="locked-panel-card">
+        <div style="font-size:64px;margin-bottom:16px">🔒</div>
+        <h2 style="margin-bottom:10px">Challenge Runs</h2>
+        <p style="color:var(--text2);font-size:16px">Complete Beginning Session to unlock! ⚡</p>
       </div>
     </div>
-    <div id="belts-wrap"></div>
-    <p style="text-align:center;color:var(--text2);font-size:13px;margin-top:32px">
-      🎓 Little Dev Academy — Built with love for young coders
-      <br><span style="font-size:11px;opacity:.5">v3.0.0</span>
-    </p>
+  </div>
+
+  <!-- Tab 3: Free Play (locked placeholder — Phase 6) -->
+  <div id="ca-panel-3" class="ca-panel">
+    <div class="container">
+      <div class="locked-panel-card">
+        <div style="font-size:64px;margin-bottom:16px">🔒</div>
+        <h2 style="margin-bottom:10px">Free Play</h2>
+        <p style="color:var(--text2);font-size:16px">Complete Challenge Runs to unlock! 🎮</p>
+      </div>
+    </div>
   </div>
 </div>
 
