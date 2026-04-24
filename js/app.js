@@ -1,16 +1,39 @@
 // =====================
+// STATE HELPERS (defined first — used in state init)
+// =====================
+function emptyStageStats() {
+  return [
+    { completed:0, totalScore:0, avgScore:0 },
+    { completed:0, totalScore:0, avgScore:0 },
+    { completed:0, totalScore:0, avgScore:0 },
+    { completed:0, totalScore:0, avgScore:0 },
+  ];
+}
+function emptyMath() {
+  return { xp:0, level:1, streak:0, lastActiveDate:'', totalWorksheets:0, stageStats:emptyStageStats() };
+}
+
+// =====================
 // STATE
 // =====================
 let S = {
   name: '', avatar: '🎓',
   masterXP: 0,
   code: { xp: 0, done: [] },
-  math: { xp: 0, level: 1 }
+  math: emptyMath()
 };
+
 let CUR = null, STEP = 0, QUIZ_DONE = false, CHALLENGE_CHECKS = [], QUIZ_EXP = '';
-let MATH_WS = [];        // current worksheet problems
-let MATH_WS_LEVEL = 0;  // level id of current worksheet
-let MATH_WS_DONE = false;
+
+// Worksheet state
+let MATH_WS        = [];
+let MATH_WS_LEVEL  = 0;
+let MATH_WS_DONE   = false;
+
+// Timer state
+let MATH_WS_TIMER_ID   = null;
+let MATH_WS_SECONDS    = 300;
+let MATH_WS_START_TIME = 0;
 
 // =====================
 // HELPERS
@@ -65,6 +88,7 @@ function startJourney() {
 // SCREENS
 // =====================
 function showScreen(id) {
+  stopTimer(); // always clear worksheet timer when navigating
   document.querySelectorAll('.screen').forEach(s => {
     s.classList.remove('active');
     s.style.setProperty('display', 'none', 'important');
@@ -72,7 +96,7 @@ function showScreen(id) {
   const el = document.getElementById(id);
   if (!el) return;
   if (id === 'sc') { el.style.setProperty('display', 'flex', 'important'); }
-  else { el.style.setProperty('display', 'block', 'important'); }
+  else             { el.style.setProperty('display', 'block', 'important'); }
   el.classList.add('active');
   window.scrollTo(0, 0);
 }
@@ -97,24 +121,32 @@ function unlocked(bid) { const b = beltBy(bid); return b && S.code.xp >= b.xp; }
 // =====================
 function renderHome() {
   updateMasterXP();
-  const lv = masterLevel();
+  const lv   = masterLevel();
   const lvXP = S.masterXP - (lv - 1) * 300;
-  const pct = Math.min(100, (lvXP / 300) * 100);
+  const pct  = Math.min(100, (lvXP / 300) * 100);
 
-  set('hm-av', S.avatar);
-  set('hm-name', S.name);
-  set('hm-level', '⭐ Level ' + lv);
-  set('hm-xp-label', S.masterXP + ' Master XP');
+  set('hm-av',      S.avatar);
+  set('hm-name',    S.name);
+  set('hm-level',   '⭐ Level ' + lv);
+  set('hm-xp-label',S.masterXP + ' Master XP');
   set('hm-xp-next', lvXP + ' / 300 XP to Level ' + (lv + 1));
   const bar = document.getElementById('hm-master-bar');
   if (bar) bar.style.width = pct + '%';
+
+  // Streak chip
+  const streak = S.math.streak || 0;
+  const streakEl = document.getElementById('hm-streak');
+  if (streakEl) {
+    streakEl.textContent = '🔥 ' + streak + (streak === 1 ? ' day' : ' days');
+    streakEl.style.display = streak > 0 ? 'inline-flex' : 'none';
+  }
 
   // Code door
   const cb = curBelt(), cnb = nextBelt();
   const cs = cb.xp, ce = cnb ? cnb.xp : cs + 500;
   const cpct = Math.min(100, ((S.code.xp - cs) / (ce - cs)) * 100);
   set('hm-code-belt', cb.em + ' ' + cb.name);
-  set('hm-code-xp', S.code.xp + ' XP');
+  set('hm-code-xp',  S.code.xp + ' XP');
   const cbar = document.getElementById('hm-code-bar');
   if (cbar) { cbar.style.width = cpct + '%'; cbar.style.background = 'linear-gradient(90deg,var(--sky2),var(--green))'; }
 
@@ -122,11 +154,10 @@ function renderHome() {
   const ml = S.math.level, mlTotal = MATH_LEVELS.length;
   const mpct = Math.min(100, ((ml - 1) / mlTotal) * 100);
   set('hm-math-level', 'Level ' + Math.min(ml, mlTotal) + ' / ' + mlTotal);
-  set('hm-math-xp', S.math.xp + ' XP');
+  set('hm-math-xp',   S.math.xp + ' XP');
   const mbar = document.getElementById('hm-math-bar');
   if (mbar) { mbar.style.width = mpct + '%'; mbar.style.background = 'linear-gradient(90deg,var(--orange),var(--amber))'; }
 
-  // Badges
   renderHomeBadges();
 }
 
@@ -134,11 +165,8 @@ function renderHomeBadges() {
   const wrap = document.getElementById('hm-badges');
   if (!wrap) return;
   const earned = BELTS.filter(b => S.code.xp >= b.xp);
-  const mathStagesDone = [];
   const stageMaxLevel = { 1:8, 2:13, 3:17, 4:20 };
-  [1,2,3,4].forEach(st => {
-    if (S.math.level > stageMaxLevel[st]) mathStagesDone.push(st);
-  });
+  const mathStagesDone = [1,2,3,4].filter(st => S.math.level > stageMaxLevel[st]);
 
   let html = earned.map(b =>
     `<span class="badge-chip" style="background:${b.color}22;color:${b.color};border-color:${b.color}44">${b.em} ${b.name}</span>`
@@ -156,11 +184,11 @@ function renderHomeBadges() {
 // =====================
 function renderDash() {
   const b = curBelt(), nb = nextBelt();
-  set('nv-av', S.avatar);
+  set('nv-av',   S.avatar);
   set('nv-name', S.name);
-  set('nv-xp', S.code.xp + ' XP');
+  set('nv-xp',   S.code.xp + ' XP');
   styleBadge('nv-belt', b);
-  set('rc-av', S.avatar);
+  set('rc-av',   S.avatar);
   set('rc-name', S.name + "'s Academy");
   styleBadge('rc-belt', b);
   const s = b.xp, e = nb ? nb.xp : s + 500;
@@ -183,8 +211,7 @@ function renderDash() {
         <h2 style="font-size:20px">${bd.em} ${bd.name}</h2>
         ${uk
           ? '<span style="background:#14532d;color:var(--green);padding:3px 10px;border-radius:20px;font-size:12px">✅ Unlocked!</span>'
-          : `<span style="background:var(--navy3);color:var(--text2);padding:3px 10px;border-radius:20px;font-size:12px">🔒 Need ${bd.xp} XP</span>`
-        }
+          : `<span style="background:var(--navy3);color:var(--text2);padding:3px 10px;border-radius:20px;font-size:12px">🔒 Need ${bd.xp} XP</span>`}
       </div>
       <div class="lesson-grid">
         ${ls.map(l => {
@@ -210,9 +237,9 @@ function renderDash() {
 function styleBadge(id, b) {
   const el = document.getElementById(id);
   if (!el) return;
-  el.textContent  = b.em + ' ' + b.name;
+  el.textContent      = b.em + ' ' + b.name;
   el.style.background = b.color + '22';
-  el.style.color  = b.color;
+  el.style.color      = b.color;
 }
 
 function lockMsg() {
@@ -245,10 +272,10 @@ function renderStep() {
   }).join('');
 
   document.getElementById('btn-prev').style.display = STEP > 0 ? 'inline-flex' : 'none';
-  const last  = STEP === total - 1;
-  const btnN  = document.getElementById('btn-next');
-  btnN.textContent = last ? '✅ Complete!' : 'Next →';
-  btnN.className   = 'btn ' + (last ? 'btn-green' : 'btn-blue');
+  const last = STEP === total - 1;
+  const btnN = document.getElementById('btn-next');
+  btnN.textContent   = last ? '✅ Complete!' : 'Next →';
+  btnN.className     = 'btn ' + (last ? 'btn-green' : 'btn-blue');
   btnN.style.display = (step.type === 'quiz' && !QUIZ_DONE) ? 'none' : 'inline-flex';
 
   const el = document.getElementById('ln-content');
@@ -338,13 +365,12 @@ function chkChallenge() {
 function doQuiz(btn, sel, ans) {
   if (QUIZ_DONE) return;
   QUIZ_DONE = true;
-  const exp = QUIZ_EXP;
   document.querySelectorAll('.quiz-opt').forEach(b => b.classList.add('done'));
   if (sel === ans) { btn.classList.add('correct'); beep('right'); }
   else { btn.classList.add('wrong'); beep('wrong'); document.querySelectorAll('.quiz-opt')[ans].classList.add('correct'); }
   document.getElementById('qfb').innerHTML = `
     <div style="background:${sel === ans ? '#14532d' : '#450a0a'};border-radius:10px;padding:14px;color:${sel === ans ? 'var(--green)' : 'var(--red)'};font-size:16px">
-      ${sel === ans ? '✅' : '❌'} <strong>${sel === ans ? 'Correct!' : 'Not quite!'}</strong> ${escHtml(exp)}
+      ${sel === ans ? '✅' : '❌'} <strong>${sel === ans ? 'Correct!' : 'Not quite!'}</strong> ${escHtml(QUIZ_EXP)}
     </div>`;
   document.getElementById('btn-next').style.display = 'inline-flex';
 }
@@ -372,7 +398,7 @@ function completLesson() {
   }
   const newBelt = curBelt();
   const beltUp  = !already && newBelt.id !== oldBelt.id;
-  set('cel-em',  CUR.em);
+  set('cel-em',    CUR.em);
   set('cel-title', already ? 'Good practice! 😊' : 'Amazing Job! 🎉');
   set('cel-sub',   already ? 'You already completed this lesson!' : 'You completed: ' + CUR.title);
   document.getElementById('cel-xp').textContent = already ? 'Already earned!' : '+' + earned + ' XP!';
@@ -392,12 +418,11 @@ function completLesson() {
 // MATH ACADEMY
 // =====================
 function renderMathDash() {
+  set('math-xp-badge', S.math.xp + ' XP');
   const wrap = document.getElementById('math-levels-wrap');
   if (!wrap) return;
-  set('math-xp-badge', S.math.xp + ' XP');
 
-  const stages = [1, 2, 3, 4];
-  wrap.innerHTML = stages.map(st => {
+  wrap.innerHTML = [1, 2, 3, 4].map(st => {
     const stInfo = MATH_STAGE_NAMES[st];
     const levels = MATH_LEVELS.filter(l => l.stage === st);
     return `
@@ -421,7 +446,7 @@ function mathLevelCard(l) {
   let cls = 'math-level-card';
   if (done) cls += ' done';
   else if (current) cls += ' current';
-  else if (locked) cls += ' locked';
+  else if (locked)  cls += ' locked';
   const click = locked ? '' : `onclick="startWorksheet(${l.id})"`;
   return `
     <div class="${cls}" ${click}>
@@ -434,24 +459,114 @@ function mathLevelCard(l) {
 }
 
 // =====================
+// TIMER
+// =====================
+function startTimer() {
+  MATH_WS_SECONDS    = 300;
+  MATH_WS_START_TIME = Date.now();
+  clearInterval(MATH_WS_TIMER_ID);
+  MATH_WS_TIMER_ID = setInterval(tickTimer, 1000);
+  updateTimerDisplay();
+}
+
+function tickTimer() {
+  if (MATH_WS_DONE) { stopTimer(); return; }
+  MATH_WS_SECONDS = Math.max(0, MATH_WS_SECONDS - 1);
+  updateTimerDisplay();
+  if (MATH_WS_SECONDS <= 0) {
+    stopTimer();
+    submitWorksheet();
+  }
+}
+
+function updateTimerDisplay() {
+  const m      = Math.floor(MATH_WS_SECONDS / 60);
+  const s      = MATH_WS_SECONDS % 60;
+  const urgent = MATH_WS_SECONDS <= 60;
+  const textEl = document.getElementById('ws-timer-text');
+  if (textEl) {
+    textEl.textContent = m + ':' + String(s).padStart(2, '0');
+    textEl.style.color = urgent ? 'var(--red)' : 'var(--text)';
+  }
+  const bar = document.getElementById('ws-timer-bar');
+  if (bar) {
+    bar.style.width = (MATH_WS_SECONDS / 300 * 100) + '%';
+    if (urgent) bar.classList.add('urgent');
+    else        bar.classList.remove('urgent');
+  }
+}
+
+function stopTimer() {
+  if (MATH_WS_TIMER_ID) {
+    clearInterval(MATH_WS_TIMER_ID);
+    MATH_WS_TIMER_ID = null;
+  }
+}
+
+// =====================
+// STREAK
+// =====================
+function updateStreak() {
+  const today = new Date().toISOString().slice(0, 10);
+  const last  = S.math.lastActiveDate || '';
+  if (last === today) return 0; // already counted today
+
+  const yesterday = new Date(Date.now() - 86400000).toISOString().slice(0, 10);
+  S.math.streak = (last === yesterday) ? (S.math.streak || 0) + 1 : 1;
+  S.math.lastActiveDate = today;
+
+  const milestones = { 3:50, 7:150, 30:500 };
+  return milestones[S.math.streak] || 0;
+}
+
+// =====================
+// STAGE STATS
+// =====================
+function updateStageStats(levelId, score) {
+  const lvDef = MATH_LEVELS.find(l => l.id === levelId);
+  if (!lvDef) return;
+  if (!S.math.stageStats) S.math.stageStats = emptyStageStats();
+  const stat = S.math.stageStats[lvDef.stage - 1];
+  stat.completed++;
+  stat.totalScore += score;
+  stat.avgScore    = Math.round((stat.totalScore / stat.completed) * 10) / 10;
+}
+
+// =====================
+// SPEED BONUS
+// =====================
+function getSpeedBonus(elapsedSec) {
+  if (elapsedSec < 120) return { xp:50, label:'⚡ Speed Bonus! Under 2 minutes!', color:'#fbbf24' };
+  if (elapsedSec < 180) return { xp:25, label:'🚀 Fast Finish! Under 3 minutes!', color:'var(--sky)' };
+  return null;
+}
+
+// =====================
 // WORKSHEET
 // =====================
 function startWorksheet(levelId) {
   const lvDef = MATH_LEVELS.find(l => l.id === levelId);
   if (!lvDef) return;
   MATH_WS_LEVEL = levelId;
-  MATH_WS = generateWorksheet(levelId);
-  MATH_WS_DONE = false;
+  MATH_WS       = generateWorksheet(levelId);
+  MATH_WS_DONE  = false;
 
-  set('ws-title', lvDef.name);
+  set('ws-title',     lvDef.name);
   set('ws-level-num', 'Level ' + levelId);
-  set('ws-xp-badge', '+' + lvDef.xp + ' XP');
+  set('ws-xp-badge',  'Up to +' + (lvDef.xp > 70 ? lvDef.xp : 70) + ' XP');
 
   renderWorksheet();
-  showScreen('smathws');
+  showScreen('smathws'); // stopTimer() fires inside showScreen
+  startTimer();
 }
 
 function renderWorksheet() {
+  // Reset timer display without starting it
+  const textEl = document.getElementById('ws-timer-text');
+  if (textEl) { textEl.textContent = '5:00'; textEl.style.color = 'var(--text)'; }
+  const timerBar = document.getElementById('ws-timer-bar');
+  if (timerBar) { timerBar.style.width = '100%'; timerBar.classList.remove('urgent'); }
+
   const wrap = document.getElementById('ws-problems');
   if (!wrap) return;
   wrap.innerHTML = MATH_WS.map((p, i) => `
@@ -477,81 +592,195 @@ function renderWorksheet() {
 function submitWorksheet() {
   if (MATH_WS_DONE) return;
   MATH_WS_DONE = true;
+  stopTimer();
 
+  const elapsedSec = MATH_WS_START_TIME
+    ? Math.floor((Date.now() - MATH_WS_START_TIME) / 1000)
+    : 300;
+
+  // Mark each problem
   let correct = 0;
   MATH_WS.forEach((p, i) => {
     const inp = document.getElementById('ws-inp-' + i);
     const row = document.getElementById('ws-row-' + i);
-    const fb  = document.getElementById('ws-fb-' + i);
-    const ca  = document.getElementById('ws-ca-' + i);
+    const fb  = document.getElementById('ws-fb-'  + i);
+    const ca  = document.getElementById('ws-ca-'  + i);
     if (!inp) return;
     inp.disabled = true;
     const val = parseInt(inp.value, 10);
-    if (val === p.a) {
+    if (!isNaN(val) && val === p.a) {
       correct++;
-      row.classList.add('correct');
-      inp.classList.add('correct');
-      fb.textContent = '✅';
+      row.classList.add('correct'); inp.classList.add('correct'); fb.textContent = '✅';
     } else {
-      row.classList.add('wrong');
-      inp.classList.add('wrong');
-      fb.textContent = '❌';
+      row.classList.add('wrong'); inp.classList.add('wrong'); fb.textContent = '❌';
       ca.textContent = '→ ' + p.a;
     }
   });
 
-  const passed = correct >= 8;
-  const lvDef  = MATH_LEVELS.find(l => l.id === MATH_WS_LEVEL);
-  const earned = (passed && S.math.level === MATH_WS_LEVEL) ? lvDef.xp : 0;
+  const passed         = correct >= 8;
+  const isCurrentLevel = S.math.level === MATH_WS_LEVEL;
 
-  if (earned > 0) {
-    S.math.xp += earned;
-    S.math.level = Math.min(MATH_WS_LEVEL + 1, MATH_LEVELS.length + 1);
-    updateMasterXP();
-    save();
+  // XP calculation
+  const baseXP    = correct === 10 ? 100 : correct >= 8 ? 70 : 10;
+  const speedBonus = (passed && isCurrentLevel) ? getSpeedBonus(elapsedSec) : null;
+  let earned = 0;
+  if (isCurrentLevel && passed) {
+    earned = baseXP + (speedBonus ? speedBonus.xp : 0);
+  } else if (isCurrentLevel && !passed) {
+    earned = 10; // consolation for trying
   }
+  // replay pass or replay fail → 0 XP
 
+  // Streak (before any saves)
+  const milestoneXP = updateStreak();
+
+  // Stats
+  updateStageStats(MATH_WS_LEVEL, correct);
+  S.math.totalWorksheets = (S.math.totalWorksheets || 0) + 1;
+
+  // Apply XP and advance level
+  S.math.xp += earned + milestoneXP;
+  if (isCurrentLevel && passed) {
+    S.math.level = Math.min(MATH_WS_LEVEL + 1, MATH_LEVELS.length + 1);
+  }
+  updateMasterXP();
+  save();
+
+  // ── Score card ──
   const scoreCard = document.getElementById('ws-score-card');
   if (scoreCard) {
     scoreCard.style.display = 'block';
+
     const numEl = scoreCard.querySelector('.ws-score-num');
     if (numEl) {
       numEl.textContent = correct + ' / 10';
-      numEl.className = 'ws-score-num ' + (passed ? 'ws-pass' : 'ws-fail');
+      numEl.className   = 'ws-score-num ' + (passed ? 'ws-pass' : 'ws-fail');
     }
+
     const msgEl = document.getElementById('ws-score-msg');
-    if (msgEl) msgEl.textContent = passed ? '🎉 You Passed!' : '📚 Almost! Need 8/10 to advance.';
+    if (msgEl) {
+      if (!passed) {
+        msgEl.textContent = '💪 Almost! Score 8 or more to advance. Try again!';
+      } else if (!isCurrentLevel) {
+        msgEl.textContent = '✅ Nice practice! You already passed this level.';
+      } else if (correct === 10) {
+        msgEl.textContent = '🏆 Perfect Score! Next level unlocked!';
+      } else {
+        msgEl.textContent = '🎉 You Passed! Next level unlocked!';
+      }
+    }
+
+    // XP pill
     const xpEl = document.getElementById('ws-score-xp');
     if (xpEl) {
-      xpEl.style.display = earned > 0 ? 'inline-block' : 'none';
-      xpEl.textContent = '+' + lvDef.xp + ' XP!';
+      if (earned > 0) {
+        xpEl.style.display  = 'inline-block';
+        xpEl.textContent    = '+' + baseXP + ' XP' + (speedBonus ? ' + ' + speedBonus.xp + ' bonus' : '');
+      } else {
+        xpEl.style.display = 'none';
+      }
     }
-    if (passed && earned > 0) { confetti(); beep('win'); }
+
+    // Speed bonus badge
+    const speedEl = document.getElementById('ws-speed-bonus');
+    if (speedEl) {
+      if (speedBonus) {
+        speedEl.style.display = 'block';
+        speedEl.innerHTML = `<span class="ws-speed-pill" style="background:${speedBonus.color}22;color:${speedBonus.color};border:2px solid ${speedBonus.color}55">${speedBonus.label}</span>`;
+      } else {
+        speedEl.style.display = 'none';
+      }
+    }
+
+    // Milestone banner
+    const mileEl = document.getElementById('ws-milestone-banner');
+    if (mileEl) {
+      if (milestoneXP > 0) {
+        const em = S.math.streak >= 30 ? '🏆' : S.math.streak >= 7 ? '🎖️' : '⭐';
+        mileEl.style.display = 'block';
+        mileEl.innerHTML = `
+          <div style="font-size:36px;margin-bottom:8px">${em}</div>
+          <div style="font-size:18px;font-weight:700;color:var(--orange)">${S.math.streak}-Day Streak Milestone! 🔥</div>
+          <div style="font-size:15px;color:var(--amber);margin-top:4px">+${milestoneXP} Bonus XP!</div>
+        `;
+      } else {
+        mileEl.style.display = 'none';
+      }
+    }
+
+    // Sounds & confetti
+    if (passed && isCurrentLevel && correct === 10) { confetti(); beep('win'); }
     else if (passed) { beep('right'); }
     else { beep('wrong'); }
   }
 
+  // Navigation buttons
   const submitBtn = document.getElementById('ws-submit-btn');
   if (submitBtn) submitBtn.style.display = 'none';
   const retryBtn = document.getElementById('ws-retry-btn');
   if (retryBtn) retryBtn.style.display = 'inline-flex';
   const nextBtn = document.getElementById('ws-next-btn');
   if (nextBtn) {
-    const hasNext = MATH_WS_LEVEL < MATH_LEVELS.length;
-    nextBtn.style.display = (passed && hasNext) ? 'inline-flex' : 'none';
+    nextBtn.style.display = (passed && isCurrentLevel && MATH_WS_LEVEL < MATH_LEVELS.length)
+      ? 'inline-flex' : 'none';
   }
 }
 
 function retryWorksheet() {
-  MATH_WS = generateWorksheet(MATH_WS_LEVEL);
+  MATH_WS      = generateWorksheet(MATH_WS_LEVEL);
   MATH_WS_DONE = false;
   renderWorksheet();
+  startTimer();
 }
 
 function nextMathLevel() {
   const nextId = MATH_WS_LEVEL + 1;
   if (nextId <= MATH_LEVELS.length) startWorksheet(nextId);
   else { showScreen('smath'); renderMathDash(); }
+}
+
+// =====================
+// PROGRESS REPORT
+// =====================
+function renderReport() {
+  const streak = S.math.streak || 0;
+  const total  = S.math.totalWorksheets || 0;
+  const stats  = S.math.stageStats || emptyStageStats();
+
+  set('rp-streak', streak);
+  set('rp-total',  total);
+
+  const wrap = document.getElementById('rp-stages');
+  if (!wrap) return;
+
+  wrap.innerHTML = [1, 2, 3, 4].map(st => {
+    const stInfo      = MATH_STAGE_NAMES[st];
+    const stageLevels = MATH_LEVELS.filter(l => l.stage === st);
+    const totalLvls   = stageLevels.length;
+    const doneLvls    = stageLevels.filter(l => S.math.level > l.id).length;
+    const pct         = totalLvls > 0 ? Math.round((doneLvls / totalLvls) * 100) : 0;
+    const stat        = stats[st - 1] || { completed:0, totalScore:0, avgScore:0 };
+    return `
+      <div class="report-stage-card">
+        <div class="report-stage-title">
+          <div style="width:4px;height:28px;border-radius:4px;background:${stInfo.color}"></div>
+          <span style="font-size:22px">${stInfo.em}</span>
+          <h2 style="font-size:18px">${stInfo.name}</h2>
+        </div>
+        <div style="display:flex;justify-content:space-between;font-size:14px;color:var(--text2);margin-bottom:2px">
+          <span>${doneLvls} / ${totalLvls} levels complete</span>
+          <span style="font-weight:700;color:${stInfo.color}">${pct}%</span>
+        </div>
+        <div class="report-prog-outer">
+          <div class="report-prog-inner" style="width:${pct}%;background:${stInfo.color}"></div>
+        </div>
+        <div class="report-details">
+          <span>📊 Avg score: <strong>${stat.completed > 0 ? stat.avgScore + ' / 10' : '—'}</strong></span>
+          <span>📝 Worksheets: <strong>${stat.completed}</strong></span>
+        </div>
+      </div>
+    `;
+  }).join('');
 }
 
 // =====================
@@ -562,7 +791,7 @@ function confetti() {
   cv.width = window.innerWidth; cv.height = window.innerHeight;
   const ctx  = cv.getContext('2d');
   const cols = ['#fbbf24','#38bdf8','#4ade80','#f87171','#a855f7','#f97316','#ec4899'];
-  const ps = Array.from({ length: 130 }, () => ({
+  const ps   = Array.from({ length: 130 }, () => ({
     x: Math.random() * cv.width, y: -20 - Math.random() * 150,
     w: 7 + Math.random() * 9,    h: 5  + Math.random() * 7,
     color: cols[Math.floor(Math.random() * cols.length)],
@@ -604,6 +833,6 @@ function beep(type) {
     };
     if (type === 'right') { play(523,0,.1); play(659,.1,.1); play(784,.2,.2); }
     else if (type === 'wrong') { play(300,0,.1); play(220,.1,.2); }
-    else if (type === 'win') { [523,659,784,1047].forEach((f,i) => play(f, i*.13, .25)); }
+    else if (type === 'win')   { [523,659,784,1047].forEach((f,i) => play(f, i*.13, .25)); }
   } catch(e) {}
 }
