@@ -683,7 +683,7 @@ function completLesson() {
     bu.style.display     = 'block';
     bu.style.borderColor = newBelt.color;
     const bemEl = document.getElementById('cel-bem');
-    if (bemEl) bemEl.innerHTML = '<video src="assets/mascot-fireworks.mp4" width="200" autoplay loop muted playsinline style="display:block;margin:0 auto;border-radius:12px"></video>';
+    if (bemEl) bemEl.innerHTML = '<video src="assets/mascot-fireworks.mp4" width="160" autoplay loop muted playsinline style="display:block;margin:0 auto"></video>';
     set('cel-bname', '🎉 ' + newBelt.name + ' Unlocked!');
   } else { bu.style.display = 'none'; }
   showScreen('sc');
