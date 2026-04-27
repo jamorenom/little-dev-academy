@@ -294,6 +294,7 @@ function switchCodeTab(n) {
     if (tab)   tab.classList.toggle('active',   i === n);
     if (panel) panel.classList.toggle('active', i === n);
   }
+  if (n === 2) { renderCRHub(); }
   if (n === 3) {
     renderFreePlay();
     loadFpProjects().then(ps => { FP_PROJECTS = ps; renderFreePlay(); });
@@ -332,7 +333,6 @@ function renderBSProgress() {
 function renderFreePlay() {
   const wrap = document.getElementById('fp-list-wrap');
   if (!wrap) return;
-  const notice = `<div class="fp-coming-notice">🔒 Challenge Runs coming soon! More ways to earn XP are on the way. ⚡</div>`;
   const newBtn = `<button class="fp-new-btn" onclick="fpNewProject()">➕ New Project</button>`;
   let body;
   if (FP_PROJECTS.length === 0) {
@@ -355,7 +355,7 @@ function renderFreePlay() {
       </div>`
     ).join('')}</div>`;
   }
-  wrap.innerHTML = notice + newBtn + body;
+  wrap.innerHTML = newBtn + body;
 }
 
 function fpNewProject() {
@@ -1091,6 +1091,481 @@ function confetti() {
     else ctx.clearRect(0, 0, cv.width, cv.height);
   }
   draw();
+}
+
+// =====================
+// CHALLENGE RUN ENGINE
+// =====================
+
+let CRS = {
+  running: false,
+  runSecs: 3600,
+  epSecs: 240,
+  lsnSecs: 50,
+  runTimerId: null,
+  epTimerId: null,
+  lsnTimerId: null,
+  epIdx: 0,
+  lsnIdx: 0,
+  stepIdx: 0,
+  totalScore: 0,
+  epScore: 0,
+  totalXP: 0,
+  epResults: [],
+  quizDone: false,
+  chalChecks: [],
+  quizExp: '',
+};
+
+function crFmtTime(secs) {
+  const h = Math.floor(secs / 3600);
+  const m = Math.floor((secs % 3600) / 60);
+  const s = secs % 60;
+  if (h > 0) return h + ':' + String(m).padStart(2,'0') + ':' + String(s).padStart(2,'0');
+  return m + ':' + String(s).padStart(2,'0');
+}
+
+function updateCRTimers() {
+  const lsnEl  = document.getElementById('cr-lsn-timer');
+  const epEl   = document.getElementById('cr-ep-timer');
+  const runEl  = document.getElementById('cr-run-timer');
+  const scoreEl= document.getElementById('cr-score-display');
+  if (lsnEl) {
+    lsnEl.textContent = '⏱️ ' + crFmtTime(CRS.lsnSecs);
+    lsnEl.className   = 'cr-timer-box' + (CRS.lsnSecs <= 15 ? ' cr-timer-urgent' : '');
+  }
+  if (epEl) {
+    epEl.textContent = '📺 ' + crFmtTime(CRS.epSecs);
+    epEl.className   = 'cr-timer-box' + (CRS.epSecs <= 30 ? ' cr-timer-urgent' : '');
+  }
+  if (runEl) {
+    runEl.textContent = '🏆 ' + crFmtTime(CRS.runSecs);
+    runEl.className   = 'cr-timer-box' + (CRS.runSecs <= 120 ? ' cr-timer-urgent' : '');
+  }
+  if (scoreEl) scoreEl.textContent = '⚡ ' + CRS.totalScore + ' pts';
+}
+
+function crStopAllTimers() {
+  ['runTimerId','epTimerId','lsnTimerId'].forEach(k => {
+    if (CRS[k]) { clearInterval(CRS[k]); CRS[k] = null; }
+  });
+}
+
+// ── Hub (ca-panel-2) ──
+function renderCRHub() {
+  const panel = document.getElementById('ca-panel-2');
+  if (!panel) return;
+  const complete = beginningSessionComplete();
+  if (!complete) {
+    const done  = LESSONS.filter(l => S.code.done.includes(l.id)).length;
+    const total = LESSONS.length;
+    panel.innerHTML = `
+      <div class="container">
+        <div class="locked-panel-card">
+          <div style="font-size:64px;margin-bottom:16px">🔒</div>
+          <h2 style="margin-bottom:10px">Challenge Runs Locked</h2>
+          <p style="color:var(--text2);font-size:16px;margin-bottom:12px">Complete all Beginning Session lessons first! 📖</p>
+          <div style="background:var(--navy3);border-radius:20px;height:10px;overflow:hidden;max-width:300px;margin:0 auto">
+            <div style="height:100%;border-radius:20px;background:linear-gradient(90deg,var(--sky2),var(--green));width:${Math.round(done/total*100)}%"></div>
+          </div>
+          <p style="color:var(--text2);font-size:13px;margin-top:8px">${done} / ${total} lessons done</p>
+        </div>
+      </div>`;
+    return;
+  }
+
+  const cr  = S.code.challengeRuns || {};
+  const best= cr.bestTime != null
+    ? `🏆 Best Run: ${crFmtTime(cr.bestTime)} remaining · ${cr.bestScore} pts`
+    : 'No completed runs yet — be the first!';
+
+  panel.innerHTML = `
+    <div class="container">
+      <div class="cr-hub-header">
+        <div style="font-size:52px;margin-bottom:8px">⚡</div>
+        <h2 style="font-size:24px;margin-bottom:4px">Challenge Runs</h2>
+        <p style="color:var(--text2);font-size:14px;margin-bottom:6px">5 episodes · 1 hour to finish everything</p>
+        <div class="cr-best-banner">${best}</div>
+      </div>
+      <div class="cr-ep-grid">
+        ${CR_EPISODES.map((ep,i) => {
+          const belt = beltBy(ep.beltId);
+          return `<div class="cr-ep-card" style="border-color:${belt.color}44;background:${belt.color}0d">
+            <div style="font-size:28px;margin-bottom:6px">${ep.em}</div>
+            <div style="font-weight:700;font-size:15px;margin-bottom:2px">${ep.name}</div>
+            <div style="font-size:12px;color:var(--text2)">${ep.lessons.length} lessons · 4 min</div>
+          </div>`;
+        }).join('')}
+      </div>
+      <div style="text-align:center;padding:8px 0 28px">
+        <button class="cr-start-btn" onclick="startChallengeRun()">⚡ Start Challenge Run!</button>
+        <p style="color:var(--text2);font-size:12px;margin-top:10px">Timers: 50s/lesson · 4 min/episode · 1 hour total</p>
+      </div>
+    </div>`;
+}
+
+// ── Start Run ──
+function startChallengeRun() {
+  CRS = {
+    running: true,
+    runSecs: 3600,
+    epSecs: 240,
+    lsnSecs: 50,
+    runTimerId: null,
+    epTimerId: null,
+    lsnTimerId: null,
+    epIdx: 0,
+    lsnIdx: 0,
+    stepIdx: 0,
+    totalScore: 0,
+    epScore: 0,
+    totalXP: 0,
+    epResults: [],
+    quizDone: false,
+    chalChecks: [],
+    quizExp: '',
+  };
+  showScreen('scr');
+  updateCRTimers();
+
+  CRS.runTimerId = setInterval(() => {
+    if (!CRS.running) return;
+    CRS.runSecs = Math.max(0, CRS.runSecs - 1);
+    updateCRTimers();
+    if (CRS.runSecs <= 0) crRunTimeout();
+  }, 1000);
+
+  startCREpisode(0);
+}
+
+// ── Episode ──
+function startCREpisode(idx) {
+  CRS.epIdx  = idx;
+  CRS.lsnIdx = 0;
+  CRS.stepIdx= 0;
+  CRS.epScore= 0;
+  if (CRS.epTimerId) { clearInterval(CRS.epTimerId); CRS.epTimerId = null; }
+  CRS.epSecs = 240;
+
+  const ep   = CR_EPISODES[idx];
+  const belt = beltBy(ep.beltId);
+  const epLabel = document.getElementById('cr-ep-label');
+  if (epLabel) epLabel.textContent = ep.em + ' ' + ep.name + ' — Episode ' + (idx+1) + ' / 5';
+
+  updateCRTimers();
+  CRS.epTimerId = setInterval(() => {
+    if (!CRS.running) return;
+    CRS.epSecs = Math.max(0, CRS.epSecs - 1);
+    updateCRTimers();
+    if (CRS.epSecs <= 0) crEpisodeTimeout();
+  }, 1000);
+
+  startCRLesson();
+}
+
+// ── Lesson ──
+function startCRLesson() {
+  if (CRS.lsnTimerId) { clearInterval(CRS.lsnTimerId); CRS.lsnTimerId = null; }
+  CRS.lsnSecs  = 50;
+  CRS.stepIdx  = 0;
+  CRS.quizDone = false;
+  updateCRTimers();
+
+  CRS.lsnTimerId = setInterval(() => {
+    if (!CRS.running) return;
+    CRS.lsnSecs = Math.max(0, CRS.lsnSecs - 1);
+    updateCRTimers();
+    if (CRS.lsnSecs <= 0) crLessonTimeout();
+  }, 1000);
+
+  renderCRLesson();
+}
+
+function crCurLesson() {
+  return CR_EPISODES[CRS.epIdx].lessons[CRS.lsnIdx];
+}
+
+function renderCRLesson() {
+  const lsn  = crCurLesson();
+  const step = lsn.steps[CRS.stepIdx];
+  const content = document.getElementById('cr-content');
+  if (!content) return;
+
+  // Header
+  const header = `
+    <div class="cr-lesson-header">
+      <span style="font-size:24px">${lsn.em}</span>
+      <span style="font-weight:700;font-size:15px;flex:1">${lsn.title}</span>
+      <span class="cr-lesson-badge">⚡ CHALLENGE RUN</span>
+    </div>`;
+
+  if (step.type === 'quiz') {
+    CRS.quizDone = false;
+    CRS.quizExp  = step.exp;
+    content.innerHTML = header + `
+      <div style="text-align:center;font-size:48px;margin:16px 0">🧠</div>
+      <h2 style="text-align:center;margin-bottom:20px;font-size:18px">${escHtml(step.q)}</h2>
+      <div>${step.opts.map((o,i) =>
+        `<button class="quiz-opt" onclick="crDoQuiz(this,${i},${step.ans})">${'ABCD'[i]}. ${escHtml(o)}</button>`
+      ).join('')}</div>
+      <div id="cr-qfb" style="margin-top:12px"></div>`;
+
+  } else if (step.type === 'challenge') {
+    CRS.chalChecks = step.checks || [];
+    content.innerHTML = header + `
+      <div style="text-align:center;font-size:48px;margin:16px 0">${step.icon || '🏆'}</div>
+      <h2 style="text-align:center;color:var(--red);margin-bottom:10px;font-size:17px">${step.title}</h2>
+      <p style="font-size:15px;line-height:1.7;margin-bottom:14px">${step.html}</p>
+      <div class="split">
+        <div>
+          <p style="color:var(--text2);font-size:12px;margin-bottom:6px">✏️ YOUR CODE:</p>
+          <textarea class="code-area" id="cr-ced" oninput="crLivePreview();crChkChallenge()" spellcheck="false" style="min-height:160px">${step.startCode||''}</textarea>
+        </div>
+        <div>
+          <p style="color:var(--text2);font-size:12px;margin-bottom:6px">👁️ PREVIEW:</p>
+          <iframe class="preview" id="cr-pv" sandbox="allow-scripts"></iframe>
+        </div>
+      </div>
+      <div id="cr-cl" style="margin-top:12px"></div>
+      <div style="text-align:center;margin-top:14px">
+        <button class="btn btn-amber" onclick="crSubmitChallenge()">🏆 Submit!</button>
+      </div>`;
+    crLivePreview(); crChkChallenge();
+  }
+}
+
+function crLivePreview() {
+  const ed = document.getElementById('cr-ced'), pv = document.getElementById('cr-pv');
+  if (!ed || !pv) return;
+  pv.srcdoc = `<!DOCTYPE html><html><head><style>body{font-family:system-ui,sans-serif;margin:14px;line-height:1.5}</style></head><body>${ed.value}</body></html>`;
+}
+
+function crChkChallenge() {
+  const ed = document.getElementById('cr-ced'), cl = document.getElementById('cr-cl');
+  if (!ed || !cl) return;
+  const code = ed.value;
+  cl.innerHTML = '<p style="font-size:12px;color:var(--text2);margin-bottom:6px">CHECKLIST:</p>' +
+    CRS.chalChecks.map(item => {
+      const ok = code.includes(item);
+      return `<div class="check-item" style="background:${ok?'#14532d33':'#450a0a33'}">
+        <span style="font-size:16px">${ok?'✅':'⭕'}</span>
+        <span style="color:${ok?'var(--green)':'var(--text2)'}"> ${item}</span>
+        <span style="color:var(--text2);font-size:11px">${ok?' Found!':' Not yet...'}</span>
+      </div>`;
+    }).join('');
+}
+
+function crDoQuiz(btn, sel, ans) {
+  if (CRS.quizDone) return;
+  CRS.quizDone = true;
+  document.querySelectorAll('.quiz-opt').forEach(b => b.classList.add('done'));
+  if (sel === ans) { btn.classList.add('correct'); beep('right'); }
+  else             { btn.classList.add('wrong');   beep('wrong'); document.querySelectorAll('.quiz-opt')[ans].classList.add('correct'); }
+  const fb = document.getElementById('cr-qfb');
+  if (fb) fb.innerHTML = `
+    <div style="background:${sel===ans?'#14532d':'#450a0a'};border-radius:10px;padding:12px;color:${sel===ans?'var(--green)':'var(--red)'};font-size:15px">
+      ${sel===ans?'✅':'❌'} <strong>${sel===ans?'Correct!':'Not quite!'}</strong> ${escHtml(CRS.quizExp)}
+    </div>`;
+
+  const speedScore = sel === ans ? Math.max(10, Math.round((CRS.lsnSecs / 50) * 100)) : 0;
+  if (CRS.lsnTimerId) { clearInterval(CRS.lsnTimerId); CRS.lsnTimerId = null; }
+
+  setTimeout(() => {
+    if (!CRS.running) return;
+    const lsn = crCurLesson();
+    if (CRS.stepIdx < lsn.steps.length - 1) {
+      CRS.stepIdx++;
+      CRS.lsnSecs = 50;
+      CRS.lsnTimerId = setInterval(() => {
+        if (!CRS.running) return;
+        CRS.lsnSecs = Math.max(0, CRS.lsnSecs - 1);
+        updateCRTimers();
+        if (CRS.lsnSecs <= 0) crLessonTimeout();
+      }, 1000);
+      renderCRLesson();
+    } else {
+      crLessonDone(speedScore, sel === ans);
+    }
+  }, 1200);
+}
+
+function crSubmitChallenge() {
+  const ed = document.getElementById('cr-ced');
+  if (!ed) return;
+  const code = ed.value;
+  const allPassed = CRS.chalChecks.every(item => code.includes(item));
+  if (!allPassed) {
+    crChkChallenge();
+    const cl = document.getElementById('cr-cl');
+    if (cl) cl.style.outline = '2px solid var(--red)';
+    return;
+  }
+  if (CRS.lsnTimerId) { clearInterval(CRS.lsnTimerId); CRS.lsnTimerId = null; }
+  const speedScore = Math.max(10, Math.round((CRS.lsnSecs / 50) * 100));
+  beep('right');
+  crLessonDone(speedScore, true);
+}
+
+function crLessonDone(speedScore, passed) {
+  if (CRS.lsnTimerId) { clearInterval(CRS.lsnTimerId); CRS.lsnTimerId = null; }
+  const lsn    = crCurLesson();
+  const xpBase = lsn.xp;
+  const xpEarned = passed ? xpBase : 0;
+  CRS.totalScore += speedScore;
+  CRS.epScore    += speedScore;
+  CRS.totalXP   += xpEarned;
+  if (xpEarned > 0) { S.code.xp += xpEarned; updateMasterXP(); }
+
+  const ep = CR_EPISODES[CRS.epIdx];
+  if (CRS.lsnIdx < ep.lessons.length - 1) {
+    CRS.lsnIdx++;
+    CRS.stepIdx = 0;
+    startCRLesson();
+  } else {
+    crEpisodeDone(false);
+  }
+}
+
+function crLessonTimeout() {
+  if (CRS.lsnTimerId) { clearInterval(CRS.lsnTimerId); CRS.lsnTimerId = null; }
+  CRS.lsnSecs = 0;
+  updateCRTimers();
+  const ep = CR_EPISODES[CRS.epIdx];
+  if (CRS.lsnIdx < ep.lessons.length - 1) {
+    CRS.lsnIdx++;
+    CRS.stepIdx = 0;
+    startCRLesson();
+  } else {
+    crEpisodeDone(false);
+  }
+}
+
+function crEpisodeTimeout() {
+  if (CRS.epTimerId)  { clearInterval(CRS.epTimerId);  CRS.epTimerId  = null; }
+  if (CRS.lsnTimerId) { clearInterval(CRS.lsnTimerId); CRS.lsnTimerId = null; }
+  crEpisodeDone(true);
+}
+
+function crEpisodeDone(timedOut) {
+  if (CRS.epTimerId)  { clearInterval(CRS.epTimerId);  CRS.epTimerId  = null; }
+  if (CRS.lsnTimerId) { clearInterval(CRS.lsnTimerId); CRS.lsnTimerId = null; }
+
+  const ep      = CR_EPISODES[CRS.epIdx];
+  const perfect = !timedOut;
+  const epXP    = perfect ? 100 : 0;
+  if (epXP > 0) { S.code.xp += epXP; CRS.totalXP += epXP; updateMasterXP(); }
+
+  CRS.epResults.push({
+    name: ep.name, em: ep.em,
+    score: CRS.epScore, xp: CRS.totalXP,
+    timedOut,
+  });
+
+  const content = document.getElementById('cr-content');
+  if (content) {
+    const belt = beltBy(ep.beltId);
+    content.innerHTML = `
+      <div class="cr-result-card" style="border-color:${belt.color}">
+        <div style="font-size:56px;margin-bottom:8px">${timedOut ? '⏰' : '⭐'}</div>
+        <h2 style="font-size:20px;margin-bottom:6px">${timedOut ? 'Time ran out!' : 'Episode Complete!'}</h2>
+        <div style="font-size:22px;font-weight:700;color:${belt.color};margin-bottom:4px">${ep.em} ${ep.name}</div>
+        <div class="cr-result-big">${CRS.epScore} pts</div>
+        ${epXP > 0 ? `<div class="cr-xp-pill">+${epXP} Bonus XP!</div>` : ''}
+        ${CRS.epIdx < CR_EPISODES.length - 1 ? '<p style="color:var(--text2);font-size:13px;margin-top:10px">Next episode starting…</p>' : ''}
+      </div>`;
+  }
+
+  save();
+
+  if (CRS.epIdx < CR_EPISODES.length - 1) {
+    setTimeout(() => {
+      if (!CRS.running) return;
+      startCREpisode(CRS.epIdx + 1);
+    }, 3500);
+  } else {
+    setTimeout(() => { if (CRS.running) crRunDone(false); }, 2000);
+  }
+}
+
+function crRunTimeout() {
+  CRS.running = false;
+  crStopAllTimers();
+  crShowRunResult(true);
+}
+
+function crRunDone(timedOut) {
+  CRS.running = false;
+  crStopAllTimers();
+  crShowRunResult(false);
+}
+
+function crShowRunResult(timedOut) {
+  // +500 XP for full run completion
+  const allEpsDone = CRS.epResults.length === 5 && CRS.epResults.every(r => !r.timedOut);
+  const runBonusXP = allEpsDone ? 500 : 0;
+  if (runBonusXP > 0) { S.code.xp += runBonusXP; CRS.totalXP += runBonusXP; updateMasterXP(); }
+
+  // Personal best check
+  const cr = S.code.challengeRuns || {bestTime:null,bestScore:0,totalRuns:0,lastRunDate:''};
+  const isNewBestScore = CRS.totalScore > (cr.bestScore || 0);
+  const isNewBestTime  = allEpsDone && (cr.bestTime == null || CRS.runSecs > cr.bestTime);
+  let pbXP = 0;
+  if (isNewBestTime || isNewBestScore) { pbXP = 200; S.code.xp += pbXP; CRS.totalXP += pbXP; updateMasterXP(); }
+
+  // Save record
+  cr.totalRuns   = (cr.totalRuns || 0) + 1;
+  cr.lastRunDate = new Date().toISOString().slice(0,10);
+  if (isNewBestScore) cr.bestScore = CRS.totalScore;
+  if (isNewBestTime)  cr.bestTime  = CRS.runSecs;
+  S.code.challengeRuns = cr;
+  save();
+  saveChallengeRunResult(cr);
+
+  const content = document.getElementById('cr-content');
+  if (!content) return;
+
+  const epRows = CRS.epResults.map(r =>
+    `<div style="display:flex;justify-content:space-between;padding:8px 12px;background:var(--navy3);border-radius:8px;font-size:14px;margin-bottom:6px">
+      <span>${r.em} ${r.name}</span>
+      <span style="color:${r.timedOut?'var(--red)':'var(--green)'}">${r.timedOut?'⏰ Timed out':r.score+' pts'}</span>
+    </div>`
+  ).join('');
+
+  content.innerHTML = `
+    <div class="cr-result-card" style="border-color:${allEpsDone?'var(--amber)':'var(--red)'}">
+      <div style="font-size:72px;margin-bottom:12px">${allEpsDone?'🏆':'💪'}</div>
+      <h1 style="font-size:26px;margin-bottom:6px">${allEpsDone?'Challenge Run Complete!':'Great Effort!'}</h1>
+      <p style="color:var(--text2);margin-bottom:16px;font-size:15px">
+        ${allEpsDone?'You finished all 5 episodes! Amazing!':'You made it through '+CRS.epResults.length+' / 5 episodes.'}
+      </p>
+      <div class="cr-result-big" style="color:var(--amber)">${CRS.totalScore} pts</div>
+      <div class="cr-xp-pill">+${CRS.totalXP} XP earned this run</div>
+      ${runBonusXP>0?`<div class="cr-xp-pill" style="margin-top:6px;border-color:var(--amber);color:var(--amber)">+${runBonusXP} Run Completion Bonus! 🏆</div>`:''}
+      ${pbXP>0?`<div class="cr-xp-pill" style="margin-top:6px;border-color:#fbbf24;color:#fbbf24">+${pbXP} Personal Best Bonus! ⭐</div>`:''}
+      ${isNewBestScore?`<div style="margin-top:10px;font-size:14px;color:#fbbf24">🥇 New Best Score: ${CRS.totalScore} pts!</div>`:''}
+      <div style="margin:20px 0;text-align:left">${epRows}</div>
+      <button class="btn btn-blue" style="width:100%;font-size:17px;margin-top:4px" onclick="crBackToDash()">
+        Back to Code Academy 💻
+      </button>
+    </div>`;
+
+  if (allEpsDone) { confetti(); beep('win'); }
+}
+
+function crBackToDash() {
+  showScreen('sd');
+  renderDash();
+  switchCodeTab(1);
+}
+
+function exitChallengeRun() {
+  if (!confirm('Exit the Challenge Run?\n\nXP earned so far will be saved, but the run won\'t count as complete.')) return;
+  CRS.running = false;
+  crStopAllTimers();
+  save();
+  showScreen('sd');
+  renderDash();
+  switchCodeTab(2);
 }
 
 // =====================

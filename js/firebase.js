@@ -27,7 +27,7 @@ async function save() {
       name:     S.name,
       avatar:   S.avatar,
       masterXP: S.masterXP,
-      code:     { xp: S.code.xp, done: S.code.done, fpBadge: S.code.fpBadge || false },
+      code:     { xp: S.code.xp, done: S.code.done, fpBadge: S.code.fpBadge || false, challengeRuns: S.code.challengeRuns || {bestTime:null,bestScore:0,totalRuns:0,lastRunDate:''} },
       math: {
         xp:             S.math.xp,
         level:          S.math.level,
@@ -55,7 +55,7 @@ async function loadProgress() {
 
       if (d.code) {
         // Phase 2+ structure
-        S.code = { xp: d.code.xp || 0, done: d.code.done || [], fpBadge: d.code.fpBadge || false };
+        S.code = { xp: d.code.xp || 0, done: d.code.done || [], fpBadge: d.code.fpBadge || false, challengeRuns: d.code.challengeRuns || {bestTime:null,bestScore:0,totalRuns:0,lastRunDate:''} };
         const m = d.math || {};
         S.math = {
           xp:             m.xp             || 0,
@@ -68,7 +68,7 @@ async function loadProgress() {
         S.masterXP = d.masterXP || 0;
       } else {
         // Phase 1 flat structure — migrate
-        S.code = { xp: d.xp || 0, done: d.done || [], fpBadge: false };
+        S.code = { xp: d.xp || 0, done: d.done || [], fpBadge: false, challengeRuns: {bestTime:null,bestScore:0,totalRuns:0,lastRunDate:''} };
         S.math = emptyMath();
         updateMasterXP();
         save();
@@ -87,6 +87,7 @@ async function loadProgress() {
           if (S.math.lastActiveDate === undefined) S.math.lastActiveDate = '';
           if (S.math.totalWorksheets=== undefined) S.math.totalWorksheets= 0;
           if (S.code.fpBadge        === undefined) S.code.fpBadge        = false;
+          if (S.code.challengeRuns  === undefined) S.code.challengeRuns  = {bestTime:null,bestScore:0,totalRuns:0,lastRunDate:''};
         } else {
           S.name   = parsed.name   || '';
           S.avatar = parsed.avatar || '🎓';
@@ -124,6 +125,19 @@ function resetConfirm() {
     try { localStorage.removeItem('lda_save'); } catch(e) {}
     auth.signOut();
   }
+}
+
+// =====================
+// CHALLENGE RUNS — FIRESTORE
+// =====================
+async function saveChallengeRunResult(cr) {
+  if (!currentUser) return;
+  try {
+    await db.collection('users').doc(currentUser.uid).set(
+      { code: { challengeRuns: cr } },
+      { merge: true }
+    );
+  } catch(e) { console.error('saveChallengeRunResult error:', e); }
 }
 
 // =====================

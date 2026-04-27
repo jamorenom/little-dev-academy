@@ -250,3 +250,32 @@ h3{font-size:18px;font-weight:600}
 .fp-preview-label{font-size:11px;color:var(--text2);padding:6px 12px;background:var(--navy2);font-weight:700;text-transform:uppercase;letter-spacing:.05em;flex-shrink:0}
 .fp-preview{flex:1;min-height:0;border:none;background:#fff;width:100%}
 @media(max-width:640px){.fp-editor-body{flex-direction:column}.fp-code-wrap,.fp-preview-wrap{flex:none;height:50%;min-height:0}}
+
+/* ===== CHALLENGE RUNS ===== */
+/* Hub */
+.cr-hub-header{text-align:center;padding:24px 0 16px}
+.cr-best-banner{display:inline-block;background:#450a0a33;border:1px solid var(--red);border-radius:20px;padding:6px 18px;font-size:13px;color:var(--red);margin-top:6px}
+.cr-ep-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:12px;margin-bottom:24px}
+.cr-ep-card{border:2px solid var(--navy3);border-radius:14px;padding:16px 12px;text-align:center;transition:transform .15s}
+.cr-ep-card:hover{transform:translateY(-2px)}
+.cr-start-btn{display:inline-block;background:var(--red);color:#fff;border:none;border-radius:14px;padding:16px 40px;font-size:20px;font-weight:700;cursor:pointer;font-family:inherit;transition:opacity .15s;box-shadow:0 4px 20px rgba(248,113,113,.3)}
+.cr-start-btn:hover{opacity:.9}
+
+/* 3-Timer bar */
+.cr-timer-bar{display:flex;align-items:center;justify-content:center;gap:8px;background:var(--navy2);border-bottom:2px solid #450a0a;padding:10px 16px;flex-wrap:wrap}
+.cr-timer-box{display:inline-flex;align-items:center;gap:6px;background:var(--navy3);border-radius:10px;padding:8px 14px;font-size:16px;font-weight:700;font-family:monospace;transition:color .3s,background .3s;white-space:nowrap}
+.cr-timer-urgent{color:var(--red)!important;background:#450a0a!important;box-shadow:0 0 8px rgba(248,113,113,.3)}
+
+/* Active lesson */
+.cr-ep-label{font-size:13px;color:var(--red);font-weight:700}
+.cr-score-pill{background:#450a0a33;border:1px solid var(--red);border-radius:20px;padding:4px 12px;font-size:13px;font-weight:700;color:var(--red)}
+.cr-lesson-header{display:flex;align-items:center;gap:10px;background:#450a0a22;border-left:4px solid var(--red);border-radius:0 10px 10px 0;padding:12px 14px;margin-bottom:20px}
+.cr-lesson-badge{background:var(--red);color:#fff;border-radius:20px;padding:3px 10px;font-size:11px;font-weight:700;white-space:nowrap}
+
+/* Results */
+.cr-result-card{background:var(--navy2);border:2px solid var(--navy3);border-radius:20px;padding:32px 24px;text-align:center;margin:0 auto;max-width:560px}
+.cr-result-big{font-size:52px;font-weight:700;color:var(--red);margin:8px 0}
+.cr-xp-pill{display:inline-block;background:#1e3a5f;border:2px solid var(--sky);border-radius:20px;padding:6px 20px;font-size:18px;font-weight:700;color:var(--sky);margin:6px 0}
+
+/* Score display in navbar */
+#cr-score-display{font-size:13px;font-weight:700;color:var(--red)}

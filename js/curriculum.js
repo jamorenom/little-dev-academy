@@ -226,3 +226,258 @@ const LESSONS=[
    checks:['let','if','else','input']},
 ]},
 ];
+
+// =====================
+// CHALLENGE RUN EPISODES
+// =====================
+// Harder versions of every lesson: no read steps, no hints, no tips.
+// Quiz distractors are more plausible. Challenge checklists are stricter.
+// XP is 2× the original lesson.
+
+const CR_EPISODES = [
+
+// ========= EPISODE 1: INTRO BELT =========
+{id:'ep1', name:'Intro Belt', beltId:'intro', em:'🧩', lessons:[
+
+  {id:'cr-s1', title:'From Scratch to Code!', em:'🧩', xp:80, steps:[
+    {type:'quiz',
+     q:'Which HTML concept works like a Scratch sprite — something that appears on the page?',
+     opts:['A variable','An attribute','An element','A script'],
+     ans:2,
+     exp:'HTML elements are like sprites — they appear on the page and can be styled!'},
+  ]},
+
+  {id:'cr-s2', title:'Clicks & Events', em:'🖱️', xp:80, steps:[
+    {type:'quiz',
+     q:'Which code correctly shows a pop-up message when a button is clicked?',
+     opts:['onclick="show(\'Hi\')"','onclick="popup(\'Hi\')"','onclick="alert(\'Hi\')"','onclick="message(\'Hi\')"'],
+     ans:2,
+     exp:'alert() is the built-in function that shows a pop-up — onclick fires it on click!'},
+    {type:'challenge', icon:'🖱️', title:'Speed Challenge: Clickable Button!',
+     html:'Build a button that pops up a message. No hints — you know this!',
+     startCode:'',
+     checks:['button','onclick','alert','style']},
+  ]},
+
+  {id:'cr-s3', title:'Colors & Looks', em:'🎨', xp:80, steps:[
+    {type:'quiz',
+     q:'What is the correct syntax to set text color to red inside an HTML tag?',
+     opts:['color="red"','<color: red>','style="color: red;"','text-color="red"'],
+     ans:2,
+     exp:'style="color: red;" is how inline CSS works — goes inside the opening tag!'},
+    {type:'challenge', icon:'🎨', title:'Speed Challenge: Colorful Page!',
+     html:'Build a page with colored text and a colored background. Go!',
+     startCode:'',
+     checks:['color','style','background-color',';']},
+  ]},
+
+  {id:'cr-sc0', title:'⭐ Challenge: Scratch → HTML!', em:'🏆', xp:200, steps:[
+    {type:'challenge', icon:'🏆', title:'CHALLENGE RUN: Scratch → HTML (Strict!)',
+     html:'Build a full Scratch-style project in HTML. Must include ALL of these:',
+     startCode:'',
+     checks:['button','onclick','alert','color','h1','style']},
+  ]},
+
+]},
+
+// ========= EPISODE 2: WHITE BELT =========
+{id:'ep2', name:'White Belt', beltId:'white', em:'⬜', lessons:[
+
+  {id:'cr-w1', title:'What is Coding?', em:'🤔', xp:60, steps:[
+    {type:'quiz',
+     q:'What are the THREE languages used to build websites?',
+     opts:['Python, Java, C++','HTML, CSS, JavaScript','Scratch, HTML, Python','CSS, XML, React'],
+     ans:1,
+     exp:'HTML builds structure, CSS styles it, JavaScript makes it interactive!'},
+  ]},
+
+  {id:'cr-w2', title:'Your First HTML Tag', em:'🏷️', xp:100, steps:[
+    {type:'quiz',
+     q:'What makes a closing tag different from an opening tag?',
+     opts:['It is written in CAPS','It uses [ ] instead of < >','It has a / before the tag name','It has a dot after the name'],
+     ans:2,
+     exp:'Closing tags have a forward slash: </h1> — this tells the browser where the tag ends!'},
+    {type:'challenge', icon:'🏷️', title:'Speed Challenge: Tags!',
+     html:'Write a heading and a paragraph. Both must have proper closing tags.',
+     startCode:'',
+     checks:['h1','p','</h1>','</p>']},
+  ]},
+
+  {id:'cr-w3', title:'Text Tags', em:'📝', xp:100, steps:[
+    {type:'quiz',
+     q:'Which heading tag makes the SMALLEST text?',
+     opts:['h1','h3','h6','p'],
+     ans:2,
+     exp:'h6 is the smallest heading — the HIGHER the number, the SMALLER the text!'},
+    {type:'challenge', icon:'📝', title:'Speed Challenge: Heading Hierarchy!',
+     html:'Use h1, h2, h3 AND a paragraph tag correctly.',
+     startCode:'',
+     checks:['h1','h2','h3','p']},
+  ]},
+
+  {id:'cr-w4', title:'Bold and Italic', em:'✨', xp:100, steps:[
+    {type:'quiz',
+     q:'How do you make text that is BOTH bold and italic at the same time?',
+     opts:['Use the <bolditalic> tag','Nest <strong> inside <em>','Use style="font: bold italic"','Use the <b-i> tag'],
+     ans:1,
+     exp:'Nest the tags: <strong><em>text</em></strong> — one wraps around the other!'},
+    {type:'challenge', icon:'✨', title:'Speed Challenge: Bold & Italic!',
+     html:'Write a sentence using both bold and italic text inside a paragraph.',
+     startCode:'',
+     checks:['strong','em','p']},
+  ]},
+
+  {id:'cr-wc', title:'⭐ Challenge: My First Page!', em:'🏆', xp:240, steps:[
+    {type:'challenge', icon:'🏆', title:'CHALLENGE RUN: First Page (Strict!)',
+     html:'Build a full personal page. All 6 requirements must be present:',
+     startCode:'',
+     checks:['h1','h2','p','strong','em','</h1>']},
+  ]},
+
+]},
+
+// ========= EPISODE 3: YELLOW BELT =========
+{id:'ep3', name:'Yellow Belt', beltId:'yellow', em:'🟡', lessons:[
+
+  {id:'cr-y1', title:'Making Lists', em:'📋', xp:120, steps:[
+    {type:'quiz',
+     q:'What tag wraps EACH individual item inside both ul and ol lists?',
+     opts:['<item>','<list>','<li>','<bullet>'],
+     ans:2,
+     exp:'<li> stands for list item — every single item in a list needs this tag!'},
+    {type:'challenge', icon:'📋', title:'Speed Challenge: Two Lists!',
+     html:'Build one bullet list (ul) AND one numbered list (ol), each with items.',
+     startCode:'',
+     checks:['ul','ol','<li>','</li>']},
+  ]},
+
+  {id:'cr-y2', title:'Adding Colors', em:'🎨', xp:140, steps:[
+    {type:'quiz',
+     q:'Where exactly does the style attribute go in an HTML tag?',
+     opts:['Before the < symbol','After the closing >','After the closing tag','Inside the opening tag, before the >'],
+     ans:3,
+     exp:'The style attribute goes INSIDE the opening tag: <h1 style="color:red">!'},
+    {type:'challenge', icon:'🎨', title:'Speed Challenge: Colored Text!',
+     html:'Give at least 3 different elements different text colors using the style attribute.',
+     startCode:'',
+     checks:['color','style','h1','p',';']},
+  ]},
+
+  {id:'cr-y3', title:'Background Colors', em:'🖼️', xp:140, steps:[
+    {type:'quiz',
+     q:'What character separates two CSS properties inside one style attribute?',
+     opts:['A comma ,','A colon :','A semicolon ;','A slash /'],
+     ans:2,
+     exp:'Semicolons separate CSS rules: style="color: red; background-color: blue;"'},
+    {type:'challenge', icon:'🖼️', title:'Speed Challenge: Colorful Boxes!',
+     html:'Create elements with BOTH text color AND background-color applied.',
+     startCode:'',
+     checks:['background-color','color','style',';']},
+  ]},
+
+  {id:'cr-yc', title:'⭐ Challenge: Rainbow Page!', em:'🌈', xp:300, steps:[
+    {type:'challenge', icon:'🌈', title:'CHALLENGE RUN: Rainbow Page (Strict!)',
+     html:'Build a full rainbow page. All 6 requirements must be present:',
+     startCode:'',
+     checks:['color','background-color','ul','ol','li','style']},
+  ]},
+
+]},
+
+// ========= EPISODE 4: ORANGE BELT =========
+{id:'ep4', name:'Orange Belt', beltId:'orange', em:'🟠', lessons:[
+
+  {id:'cr-o1', title:'What is CSS?', em:'💄', xp:120, steps:[
+    {type:'quiz',
+     q:'Which HTML tag contains CSS rules that style the whole page?',
+     opts:['<link>','<head>','<style>','<script>'],
+     ans:2,
+     exp:'CSS rules go inside <style> tags — usually at the top of your page!'},
+    {type:'challenge', icon:'💄', title:'Speed Challenge: CSS Block!',
+     html:'Write a <style> block that styles h1 with a color AND font-size.',
+     startCode:'',
+     checks:['<style>','color','font-size','{','}']},
+  ]},
+
+  {id:'cr-o2', title:'Fonts and Sizes', em:'🔤', xp:140, steps:[
+    {type:'quiz',
+     q:'Which CSS property changes the typeface / letter shape of text?',
+     opts:['font-size','font-weight','font-family','font-color'],
+     ans:2,
+     exp:'font-family changes the typeface! font-color does NOT exist — use color instead.'},
+    {type:'challenge', icon:'🔤', title:'Speed Challenge: Font Styling!',
+     html:'Write CSS that uses both font-size AND font-family on an element.',
+     startCode:'',
+     checks:['font-size','font-family','<style>','px']},
+  ]},
+
+  {id:'cr-o3', title:'Borders and Padding', em:'📦', xp:140, steps:[
+    {type:'quiz',
+     q:'What does padding do in CSS?',
+     opts:['Adds an outline OUTSIDE the element','Adds space INSIDE the element, between content and border','Changes the border color','Pushes the element down the page'],
+     ans:1,
+     exp:'Padding is space INSIDE the box — between the text and the border!'},
+    {type:'challenge', icon:'📦', title:'Speed Challenge: Styled Box!',
+     html:'Create an element with a border, padding, AND background-color all applied.',
+     startCode:'',
+     checks:['border','padding','background-color','px']},
+  ]},
+
+  {id:'cr-oc', title:'⭐ Challenge: My Styled Site!', em:'🌟', xp:360, steps:[
+    {type:'challenge', icon:'🌟', title:'CHALLENGE RUN: Styled Site (Strict!)',
+     html:'Build a fully styled page. All 6 requirements must be present:',
+     startCode:'',
+     checks:['<style>','font-size','border','padding','font-family','background-color']},
+  ]},
+
+]},
+
+// ========= EPISODE 5: GREEN BELT =========
+{id:'ep5', name:'Green Belt', beltId:'green', em:'🟢', lessons:[
+
+  {id:'cr-g1', title:'What is JavaScript?', em:'⚡', xp:120, steps:[
+    {type:'quiz',
+     q:'Which HTML tag is used to contain JavaScript code?',
+     opts:['<code>','<js>','<script>','<run>'],
+     ans:2,
+     exp:'JavaScript goes inside <script> tags — placed in your HTML page!'},
+    {type:'challenge', icon:'⚡', title:'Speed Challenge: First JS!',
+     html:'Write a script with a function that uses alert() to show a message.',
+     startCode:'',
+     checks:['<script>','function','alert','()']},
+  ]},
+
+  {id:'cr-g2', title:'Variables', em:'📦', xp:160, steps:[
+    {type:'quiz',
+     q:'In the code:  let score = 0;  — what does the = sign do?',
+     opts:['Checks if score equals 0','Stores the value 0 into the variable score','Compares two values','Creates a condition'],
+     ans:1,
+     exp:'= is the assignment operator — it STORES a value. To CHECK equality, use ===!'},
+    {type:'challenge', icon:'📦', title:'Speed Challenge: Variables!',
+     html:'Write a function that uses at least 2 variables and updates the page text.',
+     startCode:'',
+     checks:['let','function','document.getElementById','innerText']},
+  ]},
+
+  {id:'cr-g3', title:'If / Else', em:'🤔', xp:180, steps:[
+    {type:'quiz',
+     q:'In:  if (x > 10) { ... } else { ... }  — when does the else block run?',
+     opts:['When x is greater than 10','When x equals exactly 10','When x is NOT greater than 10','Always, every time'],
+     ans:2,
+     exp:'else is the fallback — it runs whenever the if condition is FALSE!'},
+    {type:'challenge', icon:'🤔', title:'Speed Challenge: Decision Machine!',
+     html:'Write a function with if/else that checks a condition and shows different text.',
+     startCode:'',
+     checks:['if','else','function','let','>']},
+  ]},
+
+  {id:'cr-gc', title:'⭐ Challenge: Guess My Number!', em:'🎲', xp:400, steps:[
+    {type:'challenge', icon:'🎲', title:'CHALLENGE RUN: Guess My Number (Strict!)',
+     html:'Build the complete number guessing game. All 7 requirements must be present:',
+     startCode:'',
+     checks:['let','if','else','input','function','===','parseInt']},
+  ]},
+
+]},
+
+];
